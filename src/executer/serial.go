@@ -13,6 +13,7 @@ import (
 
 func createSerialCmd(host string, argv string) *exec.Cmd {
 	params := []string{
+        "-q",
 		"-tt",
 		"-l",
 		currentUser,

@@ -189,7 +189,7 @@ func (c *Cli) setPrompt() {
 		pr += term.Colored(rts, rtcolor, rtbold)
 	}
 
-	pr += "» "
+	pr += "> "
 	c.rl.SetPrompt(pr)
 }
 

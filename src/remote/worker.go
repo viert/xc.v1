@@ -107,6 +107,7 @@ func createDistributeCmd(task *WorkerTask) *exec.Cmd {
 
 func createExecCmd(task *WorkerTask) *exec.Cmd {
 	params := []string{
+        "-q",
 		"-tt",
 		"-l",
 		task.User,
