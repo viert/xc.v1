@@ -165,6 +165,8 @@ func (w *Worker) run() {
 		}
 
 		cmd.Start()
+		stderrFinished := false
+		stdoutFinished := false
 
 	taskLoop:
 		for !taskStopped {
@@ -180,7 +182,7 @@ func (w *Worker) run() {
 			n, err = stdout.Read(buf)
 			if err != nil {
 				// EOF
-				taskStopped = true
+				stdoutFinished = true
 			} else {
 				if n > 0 {
 					chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
@@ -211,7 +213,7 @@ func (w *Worker) run() {
 			n, err = stderr.Read(buf)
 			if err != nil {
 				// EOF
-				taskStopped = true
+				stderrFinished = true
 			} else {
 				if n > 0 {
 					chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
@@ -223,6 +225,10 @@ func (w *Worker) run() {
 						}
 					}
 				}
+			}
+
+			if stdoutFinished && stderrFinished {
+				taskStopped = true
 			}
 		}
 
