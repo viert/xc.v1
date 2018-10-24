@@ -70,6 +70,20 @@ func staticCompleter(variants []string) completeFunc {
 	}
 }
 
+func (x *xcCompleter) removeCommand(name string) {
+	idx := -1
+	for i, cmd := range x.commands {
+		if cmd == name {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return
+	}
+	x.commands = append(x.commands[:idx], x.commands[idx+1:]...)
+}
+
 func (x *xcCompleter) Do(line []rune, pos int) (newLine [][]rune, length int) {
 	postfix := line[pos:]
 	result, length := x.complete(line[:pos])

@@ -18,7 +18,7 @@ import (
 	"term"
 )
 
-type cmdHandler func(string, ...string)
+type cmdHandler func(string, string, ...string)
 
 type execMode int
 
@@ -38,6 +38,7 @@ type Cli struct {
 	raiseType   remote.RaiseType
 	raisePasswd string
 	curDir      string
+	aliases     map[string]*alias
 	completer   *xcCompleter
 }
 
@@ -55,6 +56,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	var err error
 	cli := new(Cli)
 	cli.stopped = false
+	cli.aliases = make(map[string]*alias)
 	cli.setupCmdHandlers()
 
 	rlConfig := cfg.Readline
@@ -74,8 +76,8 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 		cli.curDir = "."
 	}
 
-	cli.doRaise(cfg.RaiseType, cfg.RaiseType)
-	cli.doMode(cfg.Mode, cfg.Mode)
+	cli.doRaise("raise", cfg.RaiseType, cfg.RaiseType)
+	cli.doMode("mode", cfg.Mode, cfg.Mode)
 	cli.setPrompt()
 	executer.Initialize(cfg.SSHThreads, cli.user)
 	return cli, nil
@@ -83,7 +85,6 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 
 func (c *Cli) setupCmdHandlers() {
 	c.handlers = make(map[string]cmdHandler)
-
 	c.handlers["exit"] = c.doExit
 	c.handlers["mode"] = c.doMode
 	c.handlers["parallel"] = c.doParallel
@@ -100,6 +101,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["ssh"] = c.doSSH
 	c.handlers["cd"] = c.doCD
 	c.handlers["local"] = c.doLocal
+	c.handlers["alias"] = c.doAlias
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -191,17 +193,17 @@ func (c *Cli) OneCmd(line string) {
 	}
 
 	if handler, ok := c.handlers[cmd]; ok {
-		handler(argsLine, args...)
+		handler(cmd, argsLine, args...)
 	} else {
 		term.Errorf("Unknown command: %s\n", cmd)
 	}
 }
 
-func (c *Cli) doExit(argsLine string, args ...string) {
+func (c *Cli) doExit(name string, argsLine string, args ...string) {
 	c.stopped = true
 }
 
-func (c *Cli) doMode(argsLine string, args ...string) {
+func (c *Cli) doMode(name string, argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: mode <[serial,parallel,collapse]>\n")
 		return
@@ -216,19 +218,19 @@ func (c *Cli) doMode(argsLine string, args ...string) {
 	term.Errorf("Unknown mode: %s\n", newMode)
 }
 
-func (c *Cli) doCollapse(argsLine string, args ...string) {
-	c.doMode("collapse")
+func (c *Cli) doCollapse(name string, argsLine string, args ...string) {
+	c.doMode("mode", "collapse", "collapse")
 }
 
-func (c *Cli) doParallel(argsLine string, args ...string) {
-	c.doMode("parallel")
+func (c *Cli) doParallel(name string, argsLine string, args ...string) {
+	c.doMode("mode", "parallel", "parallel")
 }
 
-func (c *Cli) doSerial(argsLine string, args ...string) {
-	c.doMode("serial")
+func (c *Cli) doSerial(name string, argsLine string, args ...string) {
+	c.doMode("mode", "serial", "serial")
 }
 
-func (c *Cli) doHostlist(argsLine string, args ...string) {
+func (c *Cli) doHostlist(name string, argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: hostlist <inventoree_expr>\n")
 		return
@@ -302,23 +304,23 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 	}
 }
 
-func (c *Cli) doExec(argsLine string, args ...string) {
+func (c *Cli) doExec(name string, argsLine string, args ...string) {
 	c.doexec(c.mode, argsLine)
 }
 
-func (c *Cli) doCExec(argsLine string, args ...string) {
+func (c *Cli) doCExec(name string, argsLine string, args ...string) {
 	c.doexec(execModeCollapse, argsLine)
 }
 
-func (c *Cli) doSExec(argsLine string, args ...string) {
+func (c *Cli) doSExec(name string, argsLine string, args ...string) {
 	c.doexec(execModeSerial, argsLine)
 }
 
-func (c *Cli) doPExec(argsLine string, args ...string) {
+func (c *Cli) doPExec(name string, argsLine string, args ...string) {
 	c.doexec(execModeParallel, argsLine)
 }
 
-func (c *Cli) doUser(argsLine string, args ...string) {
+func (c *Cli) doUser(name string, argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: user <username>\n")
 		return
@@ -326,7 +328,7 @@ func (c *Cli) doUser(argsLine string, args ...string) {
 	c.user = args[0]
 }
 
-func (c *Cli) doRaise(argsLine string, args ...string) {
+func (c *Cli) doRaise(name string, argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: raise <su/sudo>\n")
 		return
@@ -351,7 +353,7 @@ func (c *Cli) doRaise(argsLine string, args ...string) {
 	}
 }
 
-func (c *Cli) doPasswd(argsLine string, args ...string) {
+func (c *Cli) doPasswd(name string, argsLine string, args ...string) {
 	passwd, err := c.rl.ReadPassword("Set su/sudo password: ")
 	if err != nil {
 		term.Errorf("%s\n", err)
@@ -360,7 +362,7 @@ func (c *Cli) doPasswd(argsLine string, args ...string) {
 	c.raisePasswd = string(passwd)
 }
 
-func (c *Cli) doSSH(argsLine string, args ...string) {
+func (c *Cli) doSSH(name string, argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: ssh <inventoree_expr>\n")
 		return
@@ -382,7 +384,7 @@ func (c *Cli) doSSH(argsLine string, args ...string) {
 	executer.Serial(hosts, "")
 }
 
-func (c *Cli) doCD(argsLine string, args ...string) {
+func (c *Cli) doCD(name string, argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: cd <directory>\n")
 		return
@@ -393,7 +395,7 @@ func (c *Cli) doCD(argsLine string, args ...string) {
 	}
 }
 
-func (c *Cli) doLocal(argsLine string, args ...string) {
+func (c *Cli) doLocal(name string, argsLine string, args ...string) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT)
 	defer signal.Reset()
