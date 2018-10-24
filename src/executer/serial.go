@@ -42,6 +42,7 @@ func Serial(hosts []string, cmd string) *ExecResult {
 	defer signal.Reset()
 
 	results := newExecResults()
+runLoop:
 	for _, host := range hosts {
 		fmt.Println(term.Blue("===== " + host + " ====="))
 		cmd := createSerialCmd(host, cmd)
@@ -64,6 +65,11 @@ func Serial(hosts []string, cmd string) *ExecResult {
 			results.Success = append(results.Success, host)
 		} else {
 			results.Error = append(results.Error, host)
+		}
+		select {
+		case <-sigs:
+			break runLoop
+		default:
 		}
 	}
 	printExecResults(results)

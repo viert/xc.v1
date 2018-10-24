@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"github.com/chzyer/readline"
 	"io"
+	"os"
+	"os/exec"
+	"os/signal"
 	"regexp"
 	"remote"
 	"sort"
 	"strings"
+	"syscall"
 	"term"
 )
 
-type cmdHandler func(...string)
+type cmdHandler func(string, ...string)
 
 type execMode int
 
@@ -33,6 +37,7 @@ type Cli struct {
 	user        string
 	raiseType   remote.RaiseType
 	raisePasswd string
+	curDir      string
 	completer   *xcCompleter
 }
 
@@ -59,10 +64,18 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	cli.mode = execModeParallel
 	cli.user = cfg.User
-	cli.doRaise(cfg.RaiseType)
-	cli.doMode(cfg.Mode)
+
+	cli.curDir, err = os.Getwd()
+	if err != nil {
+		term.Errorf("Error determining current directory: %s\n", err)
+		cli.curDir = "."
+	}
+
+	cli.doRaise(cfg.RaiseType, cfg.RaiseType)
+	cli.doMode(cfg.Mode, cfg.Mode)
 	cli.setPrompt()
 	executer.Initialize(cfg.SSHThreads, cli.user)
 	return cli, nil
@@ -85,6 +98,8 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["raise"] = c.doRaise
 	c.handlers["passwd"] = c.doPasswd
 	c.handlers["ssh"] = c.doSSH
+	c.handlers["cd"] = c.doCD
+	c.handlers["local"] = c.doLocal
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -156,25 +171,37 @@ func (c *Cli) CmdLoop() {
 // OneCmd is the main method which literally runs one command
 // according to line given in arguments
 func (c *Cli) OneCmd(line string) {
+	var args []string
+	var argsLine string
+
 	line = strings.Trim(line, " \n\t")
-	tokens := exprWhiteSpace.Split(line, -1)
-	if len(tokens) < 1 {
+	cmdRunes, rest := wsSplit([]rune(line))
+	cmd := string(cmdRunes)
+
+	if cmd == "" {
 		return
 	}
-	cmd := tokens[0]
+
+	if rest == nil {
+		args = make([]string, 0)
+		argsLine = ""
+	} else {
+		argsLine = string(rest)
+		args = exprWhiteSpace.Split(argsLine, -1)
+	}
 
 	if handler, ok := c.handlers[cmd]; ok {
-		handler(tokens[1:]...)
+		handler(argsLine, args...)
 	} else {
 		term.Errorf("Unknown command: %s\n", cmd)
 	}
 }
 
-func (c *Cli) doExit(args ...string) {
+func (c *Cli) doExit(argsLine string, args ...string) {
 	c.stopped = true
 }
 
-func (c *Cli) doMode(args ...string) {
+func (c *Cli) doMode(argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: mode <[serial,parallel,collapse]>\n")
 		return
@@ -189,19 +216,19 @@ func (c *Cli) doMode(args ...string) {
 	term.Errorf("Unknown mode: %s\n", newMode)
 }
 
-func (c *Cli) doCollapse(args ...string) {
+func (c *Cli) doCollapse(argsLine string, args ...string) {
 	c.doMode("collapse")
 }
 
-func (c *Cli) doParallel(args ...string) {
+func (c *Cli) doParallel(argsLine string, args ...string) {
 	c.doMode("parallel")
 }
 
-func (c *Cli) doSerial(args ...string) {
+func (c *Cli) doSerial(argsLine string, args ...string) {
 	c.doMode("serial")
 }
 
-func (c *Cli) doHostlist(args ...string) {
+func (c *Cli) doHostlist(argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: hostlist <inventoree_expr>\n")
 		return
@@ -241,25 +268,26 @@ func (c *Cli) doHostlist(args ...string) {
 	}
 }
 
-func (c *Cli) doexec(mode execMode, args ...string) {
-	if len(args) < 2 {
-		term.Errorf("Usage: exec <inventoree_expr> commands...")
+func (c *Cli) doexec(mode execMode, argsLine string) {
+	expr, rest := wsSplit([]rune(argsLine))
+
+	if rest == nil {
+		term.Errorf("Usage: exec <inventoree_expr> commands...\n")
 		return
 	}
-	expr := args[0]
 
-	hosts, err := conductor.HostList([]rune(expr))
+	hosts, err := conductor.HostList(expr)
 	if err != nil {
-		term.Errorf("Error parsing expression %s: %s", expr, err)
+		term.Errorf("Error parsing expression %s: %s\n", string(expr), err)
 		return
 	}
 
 	if len(hosts) == 0 {
-		term.Errorf("Empty hostlist")
+		term.Errorf("Empty hostlist\n")
 		return
 	}
 
-	cmd := strings.Join(args[1:], " ")
+	cmd := string(rest)
 	executer.SetUser(c.user)
 	executer.SetRaise(c.raiseType)
 	executer.SetPasswd(c.raisePasswd)
@@ -274,23 +302,23 @@ func (c *Cli) doexec(mode execMode, args ...string) {
 	}
 }
 
-func (c *Cli) doExec(args ...string) {
-	c.doexec(c.mode, args...)
+func (c *Cli) doExec(argsLine string, args ...string) {
+	c.doexec(c.mode, argsLine)
 }
 
-func (c *Cli) doCExec(args ...string) {
-	c.doexec(execModeCollapse, args...)
+func (c *Cli) doCExec(argsLine string, args ...string) {
+	c.doexec(execModeCollapse, argsLine)
 }
 
-func (c *Cli) doSExec(args ...string) {
-	c.doexec(execModeSerial, args...)
+func (c *Cli) doSExec(argsLine string, args ...string) {
+	c.doexec(execModeSerial, argsLine)
 }
 
-func (c *Cli) doPExec(args ...string) {
-	c.doexec(execModeParallel, args...)
+func (c *Cli) doPExec(argsLine string, args ...string) {
+	c.doexec(execModeParallel, argsLine)
 }
 
-func (c *Cli) doUser(args ...string) {
+func (c *Cli) doUser(argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: user <username>\n")
 		return
@@ -298,7 +326,7 @@ func (c *Cli) doUser(args ...string) {
 	c.user = args[0]
 }
 
-func (c *Cli) doRaise(args ...string) {
+func (c *Cli) doRaise(argsLine string, args ...string) {
 	if len(args) < 1 {
 		term.Errorf("Usage: raise <su/sudo>\n")
 		return
@@ -323,7 +351,7 @@ func (c *Cli) doRaise(args ...string) {
 	}
 }
 
-func (c *Cli) doPasswd(args ...string) {
+func (c *Cli) doPasswd(argsLine string, args ...string) {
 	passwd, err := c.rl.ReadPassword("Set su/sudo password: ")
 	if err != nil {
 		term.Errorf("%s\n", err)
@@ -332,24 +360,52 @@ func (c *Cli) doPasswd(args ...string) {
 	c.raisePasswd = string(passwd)
 }
 
-func (c *Cli) doSSH(args ...string) {
+func (c *Cli) doSSH(argsLine string, args ...string) {
 	if len(args) < 1 {
-		term.Errorf("Usage: ssh <inventoree_expr>")
+		term.Errorf("Usage: ssh <inventoree_expr>\n")
 		return
 	}
 	expr := args[0]
 
 	hosts, err := conductor.HostList([]rune(expr))
 	if err != nil {
-		term.Errorf("Error parsing expression %s: %s", expr, err)
+		term.Errorf("Error parsing expression %s: %s\n", expr, err)
 		return
 	}
 
 	if len(hosts) == 0 {
-		term.Errorf("Empty hostlist")
+		term.Errorf("Empty hostlist\n")
 		return
 	}
 
 	executer.SetUser(c.user)
 	executer.Serial(hosts, "")
+}
+
+func (c *Cli) doCD(argsLine string, args ...string) {
+	if len(args) < 1 {
+		term.Errorf("Usage: cd <directory>\n")
+		return
+	}
+	err := os.Chdir(argsLine)
+	if err != nil {
+		term.Errorf("Error changing directory: %s\n", err)
+	}
+}
+
+func (c *Cli) doLocal(argsLine string, args ...string) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT)
+	defer signal.Reset()
+
+	if len(args) < 1 {
+		term.Errorf("Usage: local <localcmd> [...args]\n")
+		return
+	}
+
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("%s", argsLine))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Run()
 }

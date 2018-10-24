@@ -2,6 +2,8 @@ package cli
 
 import (
 	"conductor"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -24,6 +26,7 @@ func newXcCompleter(commands []string) *xcCompleter {
 	x.completers["p_exec"] = x.completeExec
 	x.completers["ssh"] = x.completeExec
 	x.completers["hostlist"] = x.completeExec
+	x.completers["cd"] = x.completeFiles
 	return x
 }
 
@@ -100,6 +103,28 @@ func (x *xcCompleter) completeCommand(line []rune) (newLine [][]rune, length int
 	}
 	sort.Strings(sr)
 	return toRunes(sr), len(line)
+}
+
+func (x *xcCompleter) completeFiles(line []rune) (newLine [][]rune, length int) {
+	ll := len(line)
+	path := string(line)
+	files, err := filepath.Glob(path + "*")
+	if err != nil {
+		return [][]rune{}, len(line)
+	}
+
+	results := make([][]rune, len(files))
+	for i := 0; i < len(files); i++ {
+		filename := files[i]
+		if st, err := os.Stat(filename); err == nil {
+			if st.IsDir() {
+				filename += "/"
+			}
+		}
+		results[i] = []rune(filename[ll:])
+	}
+
+	return results, ll
 }
 
 func (x *xcCompleter) completeExec(line []rune) (newLine [][]rune, length int) {
