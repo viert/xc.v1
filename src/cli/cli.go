@@ -26,20 +26,23 @@ const (
 	execModeSerial execMode = iota
 	execModeParallel
 	execModeCollapse
+
+	maxAliasRecursion = 10
 )
 
 // Cli represents a commandline interface class
 type Cli struct {
-	rl          *readline.Instance
-	stopped     bool
-	handlers    map[string]cmdHandler
-	mode        execMode
-	user        string
-	raiseType   remote.RaiseType
-	raisePasswd string
-	curDir      string
-	aliases     map[string]*alias
-	completer   *xcCompleter
+	rl                  *readline.Instance
+	stopped             bool
+	handlers            map[string]cmdHandler
+	mode                execMode
+	user                string
+	raiseType           remote.RaiseType
+	raisePasswd         string
+	curDir              string
+	aliasRecursionCount int
+	aliases             map[string]*alias
+	completer           *xcCompleter
 }
 
 var (
@@ -166,6 +169,7 @@ func (c *Cli) CmdLoop() {
 			c.stopped = true
 			continue
 		}
+		c.aliasRecursionCount = maxAliasRecursion
 		c.OneCmd(line)
 	}
 }

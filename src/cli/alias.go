@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 	"term"
 )
 
@@ -37,13 +38,24 @@ func (c *Cli) createAlias(name []rune, proxy []rune) error {
 }
 
 func (c *Cli) runAlias(name string, argsLine string, args ...string) {
+	c.aliasRecursionCount--
+	if c.aliasRecursionCount < 0 {
+		term.Errorf("Maximum recursion reached for alias referencing\n")
+		return
+	}
+
 	al, found := c.aliases[name]
 	if !found {
 		term.Errorf("Alias %s is defined but not found, this must be a bug\n", name)
+		return
 	}
-	fmt.Println(al)
-	fmt.Println(argsLine)
-	fmt.Println(args)
+
+	cmdLine, err := exterpolate(al, argsLine, args...)
+	if err != nil {
+		term.Errorf("Error running alias %s: %s\n", al.name, err)
+		return
+	}
+	c.OneCmd(cmdLine)
 }
 
 func (c *Cli) doAlias(name string, argsLine string, args ...string) {
@@ -64,4 +76,24 @@ func (c *Cli) doAlias(name string, argsLine string, args ...string) {
 			term.Errorf("Error creating alias %s: %s\n", string(aliasName), err)
 		}
 	}
+}
+
+func exterpolate(al *alias, argsLine string, args ...string) (string, error) {
+	res := ""
+	for i := 0; i < len(al.proxy); i++ {
+		if i < len(al.proxy)-1 && al.proxy[i] == '#' {
+			an, err := strconv.ParseInt(string(al.proxy[i+1]), 10, 64)
+			if err == nil {
+				argNum := int(an - 1)
+				if argNum >= len(args) {
+					return "", fmt.Errorf("alias needs argument #%d but only %d arguments are given", int(an), len(args))
+				}
+				res += args[argNum]
+				i++
+				continue
+			}
+		}
+		res += string(al.proxy[i])
+	}
+	return res, nil
 }
