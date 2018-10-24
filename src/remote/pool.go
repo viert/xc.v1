@@ -27,6 +27,7 @@ func NewPool(size int) *Pool {
 	return p
 }
 
+// ExecTask creates an execution task and puts it on the queue
 func (p *Pool) ExecTask(hosts []HostDescription, argv string, user string, raise RaiseType, passwd string) {
 	var task *WorkerTask
 	var port uint16
@@ -36,12 +37,37 @@ func (p *Pool) ExecTask(hosts []HostDescription, argv string, user string, raise
 			port = 22
 		}
 		task = &WorkerTask{
+			TaskTypeExec,
 			host.Hostname,
 			port,
 			user,
 			fmt.Sprintf("\"%s\"", argv),
 			raise,
 			passwd,
+			"",
+		}
+		p.Queue <- task
+	}
+}
+
+// DistributeTask creates a distribution task and puts it on the queu
+func (p *Pool) DistributeTask(hosts []HostDescription, user string, filename string) {
+	var task *WorkerTask
+	var port uint16
+	for _, host := range hosts {
+		port = host.Port
+		if port == 0 {
+			port = 22
+		}
+		task = &WorkerTask{
+			TaskTypeDistribute,
+			host.Hostname,
+			port,
+			user,
+			"",
+			RaiseTypeNone,
+			"",
+			filename,
 		}
 		p.Queue <- task
 	}
