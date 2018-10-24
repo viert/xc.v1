@@ -45,13 +45,14 @@ func (p *Pool) ExecTask(hosts []HostDescription, argv string, user string, raise
 			raise,
 			passwd,
 			"",
+			"",
 		}
 		p.Queue <- task
 	}
 }
 
 // DistributeTask creates a distribution task and puts it on the queu
-func (p *Pool) DistributeTask(hosts []HostDescription, user string, filename string) {
+func (p *Pool) DistributeTask(hosts []HostDescription, user string, localFilename string, remoteFilename string) {
 	var task *WorkerTask
 	var port uint16
 	for _, host := range hosts {
@@ -67,7 +68,8 @@ func (p *Pool) DistributeTask(hosts []HostDescription, user string, filename str
 			"",
 			RaiseTypeNone,
 			"",
-			filename,
+			localFilename,
+			remoteFilename,
 		}
 		p.Queue <- task
 	}

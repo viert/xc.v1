@@ -47,7 +47,8 @@ type WorkerTask struct {
 	Argv               string
 	Raise              RaiseType
 	RaisePasswd        string
-	DistributeFilename string
+	DistLocalFilename  string
+	DistRemoteFilename string
 }
 
 // WorkerOutput is a struct with a chunk of task output
