@@ -20,6 +20,7 @@ type XcConfig struct {
 	RemoteTmpdir string
 	Mode         string
 	RaiseType    string
+	Delay        int
 }
 
 const (
@@ -34,6 +35,7 @@ raise = none
 ssh_threads = 50
 ping_count = 5
 remote_tmpdir = /tmp
+delay = 0
 
 [inventoree]
 url = http://c.inventoree.ru
@@ -59,6 +61,7 @@ var (
 	defaultThreads     = 50
 	defaultTmpDir      = "/tmp"
 	defaultPingCount   = 5
+	defaultDelay       = 0
 	defaultMode        = "parallel"
 	defaultRaiseType   = "none"
 )
@@ -127,6 +130,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		threads = defaultThreads
 	}
 	xc.SSHThreads = threads
+
+	delay, err := props.GetInt("executer.delay")
+	if err != nil {
+		delay = defaultDelay
+	}
+	xc.Delay = delay
 
 	tmpdir, err := props.GetString("executer.remote_tmpdir")
 	if err != nil {

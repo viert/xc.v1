@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"remote"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"term"
@@ -43,6 +44,7 @@ type Cli struct {
 	raisePasswd         string
 	curDir              string
 	aliasRecursionCount int
+	delay               int
 	aliases             map[string]*alias
 	remoteTmpDir        string
 	completer           *xcCompleter
@@ -76,6 +78,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.mode = execModeParallel
 	cli.user = cfg.User
 	cli.remoteTmpDir = cfg.RemoteTmpdir
+	cli.delay = cfg.Delay
 
 	cli.curDir, err = os.Getwd()
 	if err != nil {
@@ -111,6 +114,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["alias"] = c.doAlias
 	c.handlers["distribute"] = c.doDistribute
 	c.handlers["runscript"] = c.doRunScript
+	c.handlers["delay"] = c.doDelay
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -127,8 +131,12 @@ func (c *Cli) setPrompt() {
 	rtcolor := term.CGreen
 
 	pr := fmt.Sprintf("[%s]", strings.Title(modeMap[c.mode]))
+
 	switch c.mode {
 	case execModeSerial:
+		if c.delay > 0 {
+			pr = fmt.Sprintf("[Serial:%d]", c.delay)
+		}
 		pr = term.Cyan(pr)
 	case execModeParallel:
 		pr = term.Yellow(pr)
@@ -314,7 +322,7 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 		r = executer.Collapse(hosts, cmd)
 		r.PrintOutputMap()
 	case execModeSerial:
-		r = executer.Serial(hosts, cmd)
+		r = executer.Serial(hosts, cmd, c.delay)
 		r.Print()
 	}
 }
@@ -396,7 +404,7 @@ func (c *Cli) doSSH(name string, argsLine string, args ...string) {
 	}
 
 	executer.SetUser(c.user)
-	executer.Serial(hosts, "")
+	executer.Serial(hosts, "", 0)
 }
 
 func (c *Cli) doCD(name string, argsLine string, args ...string) {
@@ -506,10 +514,23 @@ func (c *Cli) doRunScript(name string, argsLine string, args ...string) {
 		r = executer.Collapse(hosts, cmd)
 		defer r.PrintOutputMap()
 	case execModeSerial:
-		r = executer.Serial(hosts, cmd)
+		r = executer.Serial(hosts, cmd, c.delay)
 		defer r.Print()
 	}
 
 	r.Error = append(r.Error, copyError...)
 
+}
+
+func (c *Cli) doDelay(name string, argsLine string, args ...string) {
+	if len(args) < 1 {
+		term.Errorf("Usage: delay <seconds>\n")
+		return
+	}
+	sec, err := strconv.ParseInt(args[0], 10, 8)
+	if err != nil {
+		term.Errorf("Invalid delay format: %s\n", err)
+		return
+	}
+	c.delay = int(sec)
 }

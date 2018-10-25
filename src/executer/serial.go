@@ -8,6 +8,7 @@ import (
 	"remote"
 	"syscall"
 	"term"
+	"time"
 )
 
 func createSerialCmd(host string, argv string) *exec.Cmd {
@@ -36,14 +37,18 @@ func createSerialCmd(host string, argv string) *exec.Cmd {
 }
 
 // Serial runs comands on hosts one by one
-func Serial(hosts []string, cmd string) *ExecResult {
+func Serial(hosts []string, cmd string, delay int) *ExecResult {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT)
 	defer signal.Reset()
 
 	results := newExecResults()
 runLoop:
-	for _, host := range hosts {
+	for i, host := range hosts {
+		if i == len(hosts)-1 {
+			// shouldn't stop after the last host
+			delay = 0
+		}
 		fmt.Println(term.Blue("===== " + host + " ====="))
 		cmd := createSerialCmd(host, cmd)
 		cmd.Stdout = os.Stdout
@@ -66,6 +71,20 @@ runLoop:
 		} else {
 			results.Error = append(results.Error, host)
 		}
+
+		if delay > 0 {
+			tick := time.After(time.Duration(delay) * time.Second)
+			for {
+				select {
+				case <-sigs:
+					break runLoop
+				case <-tick:
+					continue runLoop
+				default:
+				}
+			}
+		}
+
 		select {
 		case <-sigs:
 			break runLoop
