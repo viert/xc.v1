@@ -27,6 +27,7 @@ func newXcCompleter(commands []string) *xcCompleter {
 	x.completers["ssh"] = x.completeExec
 	x.completers["hostlist"] = x.completeExec
 	x.completers["cd"] = x.completeFiles
+	x.completers["distribute"] = x.completeDistribute
 	return x
 }
 
@@ -139,6 +140,14 @@ func (x *xcCompleter) completeFiles(line []rune) (newLine [][]rune, length int) 
 	}
 
 	return results, ll
+}
+
+func (x *xcCompleter) completeDistribute(line []rune) (newLine [][]rune, length int) {
+	_, cmd := wsSplit(line)
+	if cmd == nil {
+		return x.completeExec(line)
+	}
+	return x.completeFiles(cmd)
 }
 
 func (x *xcCompleter) completeExec(line []rune) (newLine [][]rune, length int) {

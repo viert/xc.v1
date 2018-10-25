@@ -42,6 +42,7 @@ type Cli struct {
 	curDir              string
 	aliasRecursionCount int
 	aliases             map[string]*alias
+	remoteTmpDir        string
 	completer           *xcCompleter
 }
 
@@ -72,6 +73,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 
 	cli.mode = execModeParallel
 	cli.user = cfg.User
+	cli.remoteTmpDir = cfg.RemoteTmpdir
 
 	cli.curDir, err = os.Getwd()
 	if err != nil {
@@ -105,6 +107,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["cd"] = c.doCD
 	c.handlers["local"] = c.doLocal
 	c.handlers["alias"] = c.doAlias
+	c.handlers["distribute"] = c.doDistribute
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -181,6 +184,7 @@ func (c *Cli) OneCmd(line string) {
 	var argsLine string
 
 	line = strings.Trim(line, " \n\t")
+
 	cmdRunes, rest := wsSplit([]rune(line))
 	cmd := string(cmdRunes)
 
@@ -414,4 +418,42 @@ func (c *Cli) doLocal(name string, argsLine string, args ...string) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	cmd.Run()
+}
+
+func (c *Cli) doDistribute(name string, argsLine string, args ...string) {
+	expr, rest := wsSplit([]rune(argsLine))
+
+	if rest == nil {
+		term.Errorf("Usage: distribute <inventoree_expr> filename\n")
+		return
+	}
+
+	hosts, err := conductor.HostList(expr)
+	if err != nil {
+		term.Errorf("Error parsing expression %s: %s\n", string(expr), err)
+		return
+	}
+
+	if len(hosts) == 0 {
+		term.Errorf("Empty hostlist\n")
+		return
+	}
+
+	localFilename := string(rest)
+	s, err := os.Stat(localFilename)
+	if err != nil {
+		term.Errorf("Error opening file %s: %s\n", localFilename, err)
+		return
+	}
+	if s.IsDir() {
+		term.Errorf("File %s is a directory\n", localFilename)
+		return
+	}
+
+	// now := time.Now().Format("20060102-150405")
+	// remoteFilename := fmt.Sprintf("tmp.xc.%s_%s", now, localFilename)
+	// remoteFilename = filepath.Join(c.remoteTmpDir, remoteFilename)
+
+	executer.SetUser(c.user)
+	executer.Distribute(hosts, localFilename, localFilename)
 }

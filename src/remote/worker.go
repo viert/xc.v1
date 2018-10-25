@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/svent/go-nbreader"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -73,6 +74,7 @@ var (
 	exprPasswdPrompt     = regexp.MustCompile(`[Pp]assword`)
 	exprWrongPassword    = regexp.MustCompile(`[Ss]orry.+try.+again\.?`)
 	exprPermissionDenied = regexp.MustCompile(`[Pp]ermission\s+denied`)
+	exprLostConnection   = regexp.MustCompile(`[Ll]ost\sconnection`)
 
 	// SSHOptions defines generic SSH options to use in creating exec.Cmd
 	SSHOptions = []string{"PasswordAuthentication=no", "PubkeyAuthentication=yes", "StrictHostKeyChecking=no"}
@@ -87,6 +89,20 @@ func NewWorker(queue chan *WorkerTask, output chan *WorkerOutput) *Worker {
 	w.busy = false
 	go w.run()
 	return w
+}
+
+func createDistributeCmd(task *WorkerTask) *exec.Cmd {
+	params := []string{
+		"-P",
+		fmt.Sprintf("%d", task.Port),
+	}
+	for _, option := range SSHOptions {
+		params = append(params, "-o", option)
+	}
+	remoteExpr := fmt.Sprintf("%s@%s:%s", task.User, task.Host, task.DistRemoteFilename)
+	params = append(params, task.DistLocalFilename, remoteExpr)
+	cmd := exec.Command("scp", params...)
+	return cmd
 }
 
 func createExecCmd(task *WorkerTask) *exec.Cmd {
@@ -117,7 +133,7 @@ func createExecCmd(task *WorkerTask) *exec.Cmd {
 // In most of cases it does however some of the messages like
 // "Connection to host closed" or "Permission denied" should be dropped
 func shouldDropChunk(chunk []byte) bool {
-	if exprConnectionClosed.Match(chunk) {
+	if exprConnectionClosed.Match(chunk) || exprLostConnection.Match(chunk) {
 		return true
 	}
 	return false
@@ -129,6 +145,23 @@ func isPasswdPrompt(chunk []byte) bool {
 
 func isWrongPassword(chunk []byte) bool {
 	return exprWrongPassword.Match(chunk)
+}
+
+func makePipes(cmd *exec.Cmd) (stdout *nbreader.NBReader, stderr *nbreader.NBReader, stdin io.WriteCloser, err error) {
+	so, err := cmd.StdoutPipe()
+	if err != nil {
+		return
+	}
+	stdout = nbreader.NewNBReader(so, 65536)
+
+	se, err := cmd.StderrPipe()
+	if err != nil {
+		return
+	}
+	stderr = nbreader.NewNBReader(se, 65536)
+
+	stdin, err = cmd.StdinPipe()
+	return
 }
 
 func (w *Worker) run() {
@@ -160,21 +193,7 @@ func (w *Worker) run() {
 			cmd := createExecCmd(task)
 			cmd.Env = append(os.Environ(), "LC_ALL=en_US.UTF-8")
 
-			so, err := cmd.StdoutPipe()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			stdout := nbreader.NewNBReader(so, 65536)
-
-			se, err := cmd.StderrPipe()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			stderr := nbreader.NewNBReader(se, 65536)
-
-			stdin, err := cmd.StdinPipe()
+			stdout, stderr, stdin, err := makePipes(cmd)
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -184,14 +203,14 @@ func (w *Worker) run() {
 			stderrFinished := false
 			stdoutFinished := false
 
-		taskLoop:
+		execTaskLoop:
 			for !taskStopped {
 
 				select {
 				case <-w.stop:
 					taskStopped = true
 					taskForceStopped = true
-					break taskLoop
+					break execTaskLoop
 				default:
 				}
 
@@ -217,7 +236,7 @@ func (w *Worker) run() {
 								// Stopping process due to wrong passwd
 								cmd.Process.Kill()
 								taskStopped = true
-								continue taskLoop
+								continue execTaskLoop
 							} else {
 								if len(chunk) > 0 {
 									w.OutputChannel <- &WorkerOutput{chunk, OutputTypeStdout, task.Host, task.Port, 0}
@@ -266,8 +285,74 @@ func (w *Worker) run() {
 			w.OutputChannel <- &WorkerOutput{nil, OutputTypeProcessFinished, task.Host, task.Port, exitCode}
 			w.busy = false
 		case TaskTypeDistribute:
-			// NOT IMPLEMENTED
+			cmd := createDistributeCmd(task)
+			cmd.Env = append(os.Environ(), "LC_ALL=en_US.UTF-8")
+
+			stdout, stderr, _, err := makePipes(cmd)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			cmd.Start()
+			stderrFinished := false
+			stdoutFinished := false
+
+		distTaskLoop:
+			for !taskStopped {
+				select {
+				case <-w.stop:
+					taskStopped = true
+					taskForceStopped = true
+					break distTaskLoop
+				default:
+				}
+
+				n, err = stdout.Read(buf)
+				if err != nil {
+					// EOF
+					stdoutFinished = true
+				} else {
+					// TODO debug output
+				}
+
+				n, err = stderr.Read(buf)
+				if err != nil {
+					// EOF
+					stderrFinished = true
+				} else {
+					if n > 0 {
+						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
+						for _, chunk := range chunks {
+							if len(chunk) > 0 {
+								if !shouldDropChunk(chunk) {
+									w.OutputChannel <- &WorkerOutput{chunk, OutputTypeStderr, task.Host, task.Port, 0}
+								}
+							}
+						}
+					}
+				}
+
+				if stderrFinished && stdoutFinished {
+					taskStopped = true
+				}
+			}
+
 			exitCode := 0
+			if !taskForceStopped {
+				err = cmd.Wait()
+				if err != nil {
+					if exitErr, ok := err.(*exec.ExitError); ok {
+						ws := exitErr.Sys().(syscall.WaitStatus)
+						exitCode = ws.ExitStatus()
+					} else {
+						// MacOS hack
+						exitCode = 32767
+					}
+				}
+			} else {
+				exitCode = 32512
+			}
 			w.OutputChannel <- &WorkerOutput{nil, OutputTypeProcessFinished, task.Host, task.Port, exitCode}
 			w.busy = false
 		}

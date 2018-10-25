@@ -91,6 +91,10 @@ func exterpolate(al *alias, argsLine string, args ...string) (string, error) {
 				res += args[argNum]
 				i++
 				continue
+			} else if al.proxy[i+1] == '*' {
+				res += argsLine
+				i++
+				continue
 			}
 		}
 		res += string(al.proxy[i])
