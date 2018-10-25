@@ -37,7 +37,9 @@ runLoop:
 			case remote.OutputTypeStdout:
 				outputs[d.Host] += string(d.Data)
 			case remote.OutputTypeDebug:
-				fmt.Printf("%s(debug): %v\n", term.Red(d.Host), d.Data)
+				if currentDebug {
+					fmt.Printf("%s(debug): %v\n", term.Red(d.Host), d.Data)
+				}
 			case remote.OutputTypeProcessFinished:
 				result.Codes[d.Host] = d.StatusCode
 				if d.StatusCode == 0 {

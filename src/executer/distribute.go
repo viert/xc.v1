@@ -40,6 +40,10 @@ runLoop:
 					d.Data = append(d.Data, '\n')
 				}
 				fmt.Printf("%s: %s", term.Red(d.Host), string(d.Data))
+			case remote.OutputTypeDebug:
+				if currentDebug {
+					fmt.Printf("%s(debug): %v\n", term.Red(d.Host), d.Data)
+				}
 			case remote.OutputTypeProcessFinished:
 				result.Codes[d.Host] = d.StatusCode
 				if d.StatusCode == 0 {

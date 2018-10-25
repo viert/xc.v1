@@ -94,7 +94,6 @@ func NewWorker(queue chan *WorkerTask, output chan *WorkerOutput) *Worker {
 
 func createDistributeCmd(task *WorkerTask) *exec.Cmd {
 	params := []string{
-		"-q",
 		"-P",
 		fmt.Sprintf("%d", task.Port),
 	}
@@ -109,7 +108,6 @@ func createDistributeCmd(task *WorkerTask) *exec.Cmd {
 
 func createExecCmd(task *WorkerTask) *exec.Cmd {
 	params := []string{
-		"-q",
 		"-tt",
 		"-l",
 		task.User,
