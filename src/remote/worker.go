@@ -229,7 +229,7 @@ func (w *Worker) run() {
 							if i == 0 && shouldSkipEcho {
 								// skip echo \n after password send
 								shouldSkipEcho = false
-								for len(chunk) > 0 && chunk[0] == 10 || chunk[0] == 13 {
+								for len(chunk) > 0 && (chunk[0] == 10 || chunk[0] == 13) {
 									chunk = chunk[1:]
 								}
 								if len(chunk) == 0 {
