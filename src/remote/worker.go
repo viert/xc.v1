@@ -30,6 +30,7 @@ type WorkerTaskType int
 const (
 	OutputTypeStdout OutputType = iota
 	OutputTypeStderr
+	OutputTypeDebug
 	OutputTypeProcessFinished
 )
 
@@ -93,6 +94,7 @@ func NewWorker(queue chan *WorkerTask, output chan *WorkerOutput) *Worker {
 
 func createDistributeCmd(task *WorkerTask) *exec.Cmd {
 	params := []string{
+		"-q",
 		"-P",
 		fmt.Sprintf("%d", task.Port),
 	}
@@ -223,6 +225,7 @@ func (w *Worker) run() {
 					if n > 0 {
 						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
 						for i, chunk := range chunks {
+							w.OutputChannel <- &WorkerOutput{chunk, OutputTypeDebug, task.Host, task.Port, 0}
 							if i == 0 && shouldSkipEcho && len(chunk) == 1 {
 								// skip echo \n after password send
 								shouldSkipEcho = false
@@ -254,6 +257,7 @@ func (w *Worker) run() {
 					if n > 0 {
 						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
 						for _, chunk := range chunks {
+							w.OutputChannel <- &WorkerOutput{chunk, OutputTypeDebug, task.Host, task.Port, 0}
 							if len(chunk) > 0 {
 								if !shouldDropChunk(chunk) {
 									w.OutputChannel <- &WorkerOutput{chunk, OutputTypeStderr, task.Host, task.Port, 0}
@@ -314,7 +318,7 @@ func (w *Worker) run() {
 					// EOF
 					stdoutFinished = true
 				} else {
-					// TODO debug output
+					w.OutputChannel <- &WorkerOutput{buf[:n], OutputTypeDebug, task.Host, task.Port, 0}
 				}
 
 				n, err = stderr.Read(buf)

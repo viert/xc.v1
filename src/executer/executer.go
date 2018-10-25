@@ -12,6 +12,7 @@ var (
 	currentUser   string
 	currentRaise  remote.RaiseType
 	currentPasswd string
+	currentDebug  bool
 )
 
 // ExecResult represents result of execution of a task
@@ -34,6 +35,11 @@ func Initialize(numThreads int, user string) {
 	currentUser = user
 	currentRaise = remote.RaiseTypeNone
 	currentPasswd = ""
+}
+
+// SetDebug sets debug output on/off
+func SetDebug(debug bool) {
+	currentDebug = debug
 }
 
 // SetUser sets current user

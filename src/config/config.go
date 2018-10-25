@@ -23,6 +23,7 @@ type XcConfig struct {
 	RaiseType    string
 	Delay        int
 	RCfile       string
+	Debug        bool
 }
 
 const (
@@ -68,6 +69,7 @@ var (
 	defaultDelay       = 0
 	defaultMode        = "parallel"
 	defaultRaiseType   = "none"
+	defaultDebug       = false
 )
 
 func expandPath(path string) string {
@@ -180,6 +182,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		mode = defaultMode
 	}
 	xc.Mode = mode
+
+	dbg, err := props.GetBool("main.debug")
+	if err != nil {
+		dbg = defaultDebug
+	}
+	xc.Debug = dbg
 
 	return xc, nil
 }

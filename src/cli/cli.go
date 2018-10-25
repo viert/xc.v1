@@ -46,6 +46,7 @@ type Cli struct {
 	curDir              string
 	aliasRecursionCount int
 	delay               int
+	debug               bool
 	aliases             map[string]*alias
 	remoteTmpDir        string
 	completer           *xcCompleter
@@ -80,6 +81,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.user = cfg.User
 	cli.remoteTmpDir = cfg.RemoteTmpdir
 	cli.delay = cfg.Delay
+	cli.debug = cfg.Debug
 
 	cli.curDir, err = os.Getwd()
 	if err != nil {
@@ -138,6 +140,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["distribute"] = c.doDistribute
 	c.handlers["runscript"] = c.doRunScript
 	c.handlers["delay"] = c.doDelay
+	c.handlers["debug"] = c.doDebug
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -556,4 +559,20 @@ func (c *Cli) doDelay(name string, argsLine string, args ...string) {
 		return
 	}
 	c.delay = int(sec)
+}
+
+func (c *Cli) doDebug(name string, argsLine string, args ...string) {
+	if len(args) < 1 {
+		term.Errorf("Usage: debug <on/off>\n")
+		return
+	}
+
+	switch args[0] {
+	case "on":
+		c.debug = true
+	case "off":
+		c.debug = false
+	default:
+		term.Errorf("Invalid debug value. Please use \"on\" or \"off\"\n")
+	}
 }
