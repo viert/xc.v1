@@ -180,7 +180,10 @@ func (c *Conductor) load(expiredOk bool) error {
 		group.Hosts = make([]*Host, 0)
 		c.cache.groups._id[group.ID] = group
 		c.cache.groups.name[group.Name] = group
-		c.cache.workgroups._id[group.WorkGroupID].Groups = append(c.cache.workgroups._id[group.WorkGroupID].Groups, group)
+		wg := c.cache.workgroups._id[group.WorkGroupID]
+		if wg != nil {
+			wg.Groups = append(c.cache.workgroups._id[group.WorkGroupID].Groups, group)
+		}
 	}
 
 	for _, host := range c.data.Data.Hosts {
