@@ -574,5 +574,7 @@ func (c *Cli) doDebug(name string, argsLine string, args ...string) {
 		c.debug = false
 	default:
 		term.Errorf("Invalid debug value. Please use \"on\" or \"off\"\n")
+		return
 	}
+	executer.SetDebug(c.debug)
 }
