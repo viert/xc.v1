@@ -40,6 +40,10 @@ const (
 	TaskTypeDistribute
 )
 
+const (
+	bufferSize = 4096
+)
+
 // WorkerTask describes a task to process by a Worker
 type WorkerTask struct {
 	TaskType           WorkerTaskType
@@ -171,7 +175,7 @@ func (w *Worker) run() {
 	var passwordSent bool
 	var shouldSkipEcho bool
 	var n int
-	buf := make([]byte, 4096)
+	var buf []byte
 
 	for task := range w.TaskQueue {
 		if task == nil {
@@ -215,6 +219,7 @@ func (w *Worker) run() {
 				default:
 				}
 
+				buf = make([]byte, bufferSize)
 				n, err = stdout.Read(buf)
 				if err != nil {
 					// EOF
@@ -253,6 +258,8 @@ func (w *Worker) run() {
 						}
 					}
 				}
+
+				buf = make([]byte, bufferSize)
 				n, err = stderr.Read(buf)
 				if err != nil {
 					// EOF
@@ -317,6 +324,7 @@ func (w *Worker) run() {
 				default:
 				}
 
+				buf = make([]byte, bufferSize)
 				n, err = stdout.Read(buf)
 				if err != nil {
 					// EOF
@@ -325,6 +333,7 @@ func (w *Worker) run() {
 					w.OutputChannel <- &WorkerOutput{buf[:n], OutputTypeDebug, task.Host, task.Port, 0}
 				}
 
+				buf = make([]byte, bufferSize)
 				n, err = stderr.Read(buf)
 				if err != nil {
 					// EOF
