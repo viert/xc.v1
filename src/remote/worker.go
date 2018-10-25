@@ -107,7 +107,7 @@ func createDistributeCmd(task *WorkerTask) *exec.Cmd {
 
 func createExecCmd(task *WorkerTask) *exec.Cmd {
 	params := []string{
-        "-q",
+		"-q",
 		"-tt",
 		"-l",
 		task.User,
@@ -123,7 +123,7 @@ func createExecCmd(task *WorkerTask) *exec.Cmd {
 	if task.Raise == RaiseTypeSudo {
 		params = append(params, "sudo")
 	} else if task.Raise == RaiseTypeSu {
-		params = append(params, "su", "-")
+		params = append(params, "su", "-", "-c")
 	}
 	params = append(params, "bash", "-c", task.Argv)
 	cmd := exec.Command("ssh", params...)
