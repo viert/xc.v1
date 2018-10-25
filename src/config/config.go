@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// XcConfig represents XC configuration structure
 type XcConfig struct {
 	Readline  *readline.Config
 	Conductor *conductor.ConductorConfig
@@ -21,6 +22,7 @@ type XcConfig struct {
 	Mode         string
 	RaiseType    string
 	Delay        int
+	RCfile       string
 }
 
 const (
@@ -29,6 +31,7 @@ user =
 mode = parallel
 history_file = ~/.xc_history
 cache_dir = ~/.xc_cache
+rc_file = ~/.xcrc
 raise = none
 
 [executer]
@@ -56,6 +59,7 @@ var (
 	}
 	defaultHistoryFile = "~/.xc_history"
 	defaultCacheDir    = "~/.xc_cache"
+	defaultRCfile      = "~/.xcrc"
 	defaultCacheTTL    = 24
 	defaultUser        = os.Getenv("USER")
 	defaultThreads     = 50
@@ -106,6 +110,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		hf = defaultHistoryFile
 	}
 	xc.Readline.HistoryFile = expandPath(hf)
+
+	rcf, err := props.GetString("main.rc_file")
+	if err != nil {
+		rcf = defaultRCfile
+	}
+	xc.RCfile = expandPath(rcf)
 
 	cttl, err := props.GetInt("main.cache_ttl")
 	if err != nil {

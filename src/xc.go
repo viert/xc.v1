@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"term"
 )
 
@@ -30,6 +31,12 @@ func main() {
 		println(err)
 		return
 	}
-	c.CmdLoop()
+
+	if len(os.Args) < 2 {
+		c.CmdLoop()
+	}
+
+	cmd := strings.Join(os.Args[1:], " ")
+	c.OneCmd(cmd)
 
 }

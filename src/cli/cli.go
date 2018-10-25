@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"conductor"
 	"config"
 	"executer"
@@ -90,7 +91,29 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.doMode("mode", cfg.Mode, cfg.Mode)
 	cli.setPrompt()
 	executer.Initialize(cfg.SSHThreads, cli.user)
+
+	cli.runRC(cfg.RCfile)
+
 	return cli, nil
+}
+
+func (c *Cli) runRC(rcfile string) {
+	f, err := os.Open(rcfile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		term.Errorf("Error loading rcfile: %s\n", err)
+		return
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		cmd := sc.Text()
+		fmt.Println(term.Green(cmd))
+		c.OneCmd(cmd)
+	}
 }
 
 func (c *Cli) setupCmdHandlers() {
