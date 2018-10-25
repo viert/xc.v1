@@ -142,6 +142,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["runscript"] = c.doRunScript
 	c.handlers["delay"] = c.doDelay
 	c.handlers["debug"] = c.doDebug
+	c.handlers["reload"] = c.doReload
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -578,4 +579,8 @@ func (c *Cli) doDebug(name string, argsLine string, args ...string) {
 		return
 	}
 	executer.SetDebug(c.debug)
+}
+
+func (c *Cli) doReload(name string, argsLine string, args ...string) {
+	conductor.Reload()
 }

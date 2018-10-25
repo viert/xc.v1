@@ -89,7 +89,7 @@ func (c *Conductor) loadJSONCache() ([]byte, error) {
 func (c *Conductor) loadJSONHTTP() ([]byte, error) {
 	term.Warnf("Reloading data from inventoree\n")
 	wglist := strings.Join(c.config.WorkGroupList, ",")
-	url := fmt.Sprintf("%s/api/v1/open/executer_data?work_groups=%s", c.config.RemoteUrl, wglist)
+	url := fmt.Sprintf("%s/api/v1/open/executer_data?work_groups=%s&recursive=true", c.config.RemoteUrl, wglist)
 	resp, err := http.Get(url)
 	if err != nil {
 		term.Errorf("Error getting data by HTTP: %s\n", err)
@@ -130,8 +130,7 @@ func (c *Conductor) Load() error {
 	return c.load(false)
 }
 
-// Reload tries to load groups from inventoree only
-func (c *Conductor) Reload() error {
+func (c *Conductor) reload() error {
 	data, err := c.loadJSONHTTP()
 	if err != nil {
 		return err
@@ -286,6 +285,19 @@ func HostList(expr []rune) ([]string, error) {
 	for _, token := range tokens {
 		switch token.Type {
 		case TTypeHost:
+
+			if len(token.TagsFilter) > 0 {
+				host, found := cGlobal.cache.hosts.fqdn[token.Value]
+				if !found {
+					continue
+				}
+				for _, tag := range token.TagsFilter {
+					if !contains(host.AllTags, tag) {
+						continue
+					}
+				}
+			}
+
 			if token.Exclude {
 				if _, found := hostset[token.Value]; found {
 					delete(hostset, token.Value)
@@ -296,6 +308,8 @@ func HostList(expr []rune) ([]string, error) {
 		case TTypeGroup:
 			if group, found := cGlobal.cache.groups.name[token.Value]; found {
 				hosts := group.AllHosts()
+
+			hostLoop1:
 				for _, host := range hosts {
 					if token.DatacenterFilter != "" {
 						if host.Datacenter == nil {
@@ -306,6 +320,13 @@ func HostList(expr []rune) ([]string, error) {
 							continue
 						}
 					}
+
+					for _, tag := range token.TagsFilter {
+						if !contains(host.AllTags, tag) {
+							continue hostLoop1
+						}
+					}
+
 					if token.Exclude {
 						if _, found := hostset[host.FQDN]; found {
 							delete(hostset, host.FQDN)
@@ -315,6 +336,7 @@ func HostList(expr []rune) ([]string, error) {
 					}
 				}
 			}
+
 		case TTypeWorkGroup:
 			if wg, found := cGlobal.cache.workgroups.name[token.Value]; found {
 				groups := wg.Groups
@@ -322,6 +344,8 @@ func HostList(expr []rune) ([]string, error) {
 				for _, group := range groups {
 					hosts = append(hosts, group.Hosts...)
 				}
+
+			hostLoop2:
 				for _, host := range hosts {
 					if token.DatacenterFilter != "" {
 						if host.Datacenter == nil {
@@ -332,6 +356,12 @@ func HostList(expr []rune) ([]string, error) {
 							continue
 						}
 					}
+					for _, tag := range token.TagsFilter {
+						if !contains(host.AllTags, tag) {
+							continue hostLoop2
+						}
+					}
+
 					if token.Exclude {
 						if _, found := hostset[host.FQDN]; found {
 							delete(hostset, host.FQDN)
@@ -352,4 +382,21 @@ func HostList(expr []rune) ([]string, error) {
 	}
 
 	return res, nil
+}
+
+func contains(array []string, elem string) bool {
+	for _, item := range array {
+		if elem == item {
+			return true
+		}
+	}
+	return false
+}
+
+// Reload tries to load groups from inventoree only
+func Reload() error {
+	if cGlobal == nil {
+		return fmt.Errorf("conductor object is not initialized")
+	}
+	return cGlobal.reload()
 }

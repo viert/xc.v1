@@ -50,8 +50,10 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 	res := make([]*ConductorToken, 0)
 	state := StateWait
 	tag := ""
+	last := false
 	for i := 0; i < len(expr); i++ {
 		sym := expr[i]
+		last = i == len(expr)-1
 		switch state {
 		case StateWait:
 			if sym == '-' {
@@ -85,7 +87,10 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 				continue
 			}
 
-			if sym == ',' {
+			if sym == ',' || last {
+				if last {
+					ct.Value += string(sym)
+				}
 				if ct.Value == "" {
 					return nil, fmt.Errorf("Empty group name at position %d", i)
 				}
@@ -108,7 +113,10 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 				continue
 			}
 
-			if sym == ',' {
+			if sym == ',' || last {
+				if last {
+					ct.Value += string(sym)
+				}
 				res = append(res, ct)
 				ct = newToken()
 				state = StateWait
@@ -122,7 +130,10 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 
 			ct.Value += string(sym)
 		case StateReadHost:
-			if sym == ',' {
+			if sym == ',' || last {
+				if last {
+					ct.Value += string(sym)
+				}
 				res = append(res, ct)
 				ct = newToken()
 				state = StateWait
@@ -131,7 +142,10 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 
 			ct.Value += string(sym)
 		case StateReadDatacenter:
-			if sym == ',' {
+			if sym == ',' || last {
+				if last {
+					ct.DatacenterFilter += string(sym)
+				}
 				res = append(res, ct)
 				ct = newToken()
 				state = StateWait
@@ -146,7 +160,10 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 			ct.DatacenterFilter += string(sym)
 
 		case StateReadTag:
-			if sym == ',' {
+			if sym == ',' || last {
+				if last {
+					tag += string(sym)
+				}
 				if tag == "" {
 					return nil, fmt.Errorf("Empty tag at position %d", i)
 				}
