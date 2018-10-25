@@ -190,6 +190,12 @@ func (c *Conductor) build() {
 		c.cache.datacenters.name[dc.Name] = dc
 	}
 
+	for _, dc := range c.data.Data.Datacenters {
+		if pdc, found := c.cache.datacenters._id[dc.ParentID]; found {
+			dc.Parent = pdc
+		}
+	}
+
 	for _, workgroup := range c.data.Data.WorkGroups {
 		workgroup.Groups = make([]*Group, 0)
 		c.cache.workgroups._id[workgroup.ID] = workgroup

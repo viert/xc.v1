@@ -164,9 +164,11 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 				if last {
 					tag += string(sym)
 				}
+
 				if tag == "" {
 					return nil, fmt.Errorf("Empty tag at position %d", i)
 				}
+
 				ct.TagsFilter = append(ct.TagsFilter, tag)
 				res = append(res, ct)
 				ct = newToken()

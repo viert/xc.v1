@@ -16,6 +16,7 @@ type Datacenter struct {
 	Name        string   `json:"name"`
 	ParentID    string   `json:"parent_id"`
 	RootID      string   `json:"root_id"`
+	Parent      *Datacenter
 }
 
 type Group struct {
