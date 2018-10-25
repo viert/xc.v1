@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"remote"
-	"strings"
 	"syscall"
 	"term"
 )
@@ -16,6 +15,10 @@ func Collapse(hosts []string, cmd string) *ExecResult {
 	defer signal.Reset()
 
 	result := newExecResults()
+	if len(hosts) == 0 {
+		return result
+	}
+
 	hds := make([]remote.HostDescription, len(hosts))
 	for i := 0; i < len(hosts); i++ {
 		hds[i].Hostname = hosts[i]
@@ -53,6 +56,7 @@ runLoop:
 		default:
 		}
 	}
+
 	for k, v := range outputs {
 		_, found := result.OutputMap[v]
 		if !found {
@@ -60,19 +64,5 @@ runLoop:
 		}
 		result.OutputMap[v] = append(result.OutputMap[v], k)
 	}
-
-	for output, hosts := range result.OutputMap {
-		msg := fmt.Sprintf(" %s    ", strings.Join(hosts, ","))
-		tableWidth := len(msg) + 2
-		termWidth := term.GetTerminalWidth()
-		if tableWidth > termWidth {
-			tableWidth = termWidth
-		}
-		fmt.Println(term.Blue(term.HR(tableWidth)))
-		fmt.Println(term.Blue(msg))
-		fmt.Println(term.Blue(term.HR(tableWidth)))
-		fmt.Println(output)
-	}
-
 	return result
 }

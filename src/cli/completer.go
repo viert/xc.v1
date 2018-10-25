@@ -28,6 +28,7 @@ func newXcCompleter(commands []string) *xcCompleter {
 	x.completers["hostlist"] = x.completeExec
 	x.completers["cd"] = x.completeFiles
 	x.completers["distribute"] = x.completeDistribute
+	x.completers["runscript"] = x.completeDistribute
 	return x
 }
 

@@ -72,6 +72,5 @@ runLoop:
 		default:
 		}
 	}
-	printExecResults(results)
 	return results
 }

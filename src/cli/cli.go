@@ -10,12 +10,14 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"remote"
 	"sort"
 	"strings"
 	"syscall"
 	"term"
+	"time"
 )
 
 type cmdHandler func(string, string, ...string)
@@ -108,6 +110,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["local"] = c.doLocal
 	c.handlers["alias"] = c.doAlias
 	c.handlers["distribute"] = c.doDistribute
+	c.handlers["runscript"] = c.doRunScript
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -279,8 +282,9 @@ func (c *Cli) doHostlist(name string, argsLine string, args ...string) {
 }
 
 func (c *Cli) doexec(mode execMode, argsLine string) {
-	expr, rest := wsSplit([]rune(argsLine))
+	var r *executer.ExecResult
 
+	expr, rest := wsSplit([]rune(argsLine))
 	if rest == nil {
 		term.Errorf("Usage: exec <inventoree_expr> commands...\n")
 		return
@@ -304,11 +308,14 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 
 	switch mode {
 	case execModeParallel:
-		executer.Parallel(hosts, cmd)
+		r = executer.Parallel(hosts, cmd)
+		r.Print()
 	case execModeCollapse:
-		executer.Collapse(hosts, cmd)
+		r = executer.Collapse(hosts, cmd)
+		r.PrintOutputMap()
 	case execModeSerial:
-		executer.Serial(hosts, cmd)
+		r = executer.Serial(hosts, cmd)
+		r.Print()
 	}
 }
 
@@ -420,15 +427,15 @@ func (c *Cli) doLocal(name string, argsLine string, args ...string) {
 	cmd.Run()
 }
 
-func (c *Cli) doDistribute(name string, argsLine string, args ...string) {
+func (c *Cli) distributeCheck(name string, argsLine string, args ...string) (hosts []string, localFilename string, err error) {
 	expr, rest := wsSplit([]rune(argsLine))
 
 	if rest == nil {
-		term.Errorf("Usage: distribute <inventoree_expr> filename\n")
+		err = fmt.Errorf("usage")
 		return
 	}
 
-	hosts, err := conductor.HostList(expr)
+	hosts, err = conductor.HostList(expr)
 	if err != nil {
 		term.Errorf("Error parsing expression %s: %s\n", string(expr), err)
 		return
@@ -436,10 +443,11 @@ func (c *Cli) doDistribute(name string, argsLine string, args ...string) {
 
 	if len(hosts) == 0 {
 		term.Errorf("Empty hostlist\n")
+		err = fmt.Errorf("empty hostlist")
 		return
 	}
 
-	localFilename := string(rest)
+	localFilename = string(rest)
 	s, err := os.Stat(localFilename)
 	if err != nil {
 		term.Errorf("Error opening file %s: %s\n", localFilename, err)
@@ -447,13 +455,61 @@ func (c *Cli) doDistribute(name string, argsLine string, args ...string) {
 	}
 	if s.IsDir() {
 		term.Errorf("File %s is a directory\n", localFilename)
+		err = fmt.Errorf("invalid file")
+	}
+	return
+}
+
+func (c *Cli) doDistribute(name string, argsLine string, args ...string) {
+	hosts, localFilename, err := c.distributeCheck(name, argsLine, args...)
+	if err != nil {
+		if err.Error() == "usage" {
+			term.Errorf("Usage: distribute <inventoree_expr> filename\n")
+		}
+		return
+	}
+	executer.SetUser(c.user)
+	r := executer.Distribute(hosts, localFilename, localFilename)
+	r.Print()
+}
+
+func (c *Cli) doRunScript(name string, argsLine string, args ...string) {
+	var r *executer.ExecResult
+	hosts, localFilename, err := c.distributeCheck(name, argsLine, args...)
+	if err != nil {
+		if err.Error() == "usage" {
+			term.Errorf("Usage: runscript <inventoree_expr> filename\n")
+		}
 		return
 	}
 
-	// now := time.Now().Format("20060102-150405")
-	// remoteFilename := fmt.Sprintf("tmp.xc.%s_%s", now, localFilename)
-	// remoteFilename = filepath.Join(c.remoteTmpDir, remoteFilename)
+	now := time.Now().Format("20060102-150405")
+	remoteFilename := fmt.Sprintf("tmp.xc.%s_%s", now, localFilename)
+	remoteFilename = filepath.Join(c.remoteTmpDir, remoteFilename)
 
 	executer.SetUser(c.user)
-	executer.Distribute(hosts, localFilename, localFilename)
+	executer.SetRaise(c.raiseType)
+	executer.SetPasswd(c.raisePasswd)
+
+	er := executer.Distribute(hosts, localFilename, remoteFilename)
+
+	copyError := er.Error
+	hosts = er.Success
+
+	cmd := fmt.Sprintf("%s; rm %s", remoteFilename, remoteFilename)
+
+	switch c.mode {
+	case execModeParallel:
+		r = executer.Parallel(hosts, cmd)
+		defer r.Print()
+	case execModeCollapse:
+		r = executer.Collapse(hosts, cmd)
+		defer r.PrintOutputMap()
+	case execModeSerial:
+		r = executer.Serial(hosts, cmd)
+		defer r.Print()
+	}
+
+	r.Error = append(r.Error, copyError...)
+
 }

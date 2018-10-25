@@ -17,6 +17,10 @@ func Parallel(hosts []string, cmd string) *ExecResult {
 	defer signal.Reset()
 
 	result := newExecResults()
+	if len(hosts) == 0 {
+		return result
+	}
+
 	hds := make([]remote.HostDescription, len(hosts))
 	for i := 0; i < len(hosts); i++ {
 		hds[i].Hostname = hosts[i]
@@ -60,6 +64,5 @@ runLoop:
 		default:
 		}
 	}
-	printExecResults(result)
 	return result
 }

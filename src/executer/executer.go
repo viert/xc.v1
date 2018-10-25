@@ -3,6 +3,7 @@ package executer
 import (
 	"fmt"
 	"remote"
+	"strings"
 	"term"
 )
 
@@ -59,11 +60,28 @@ func newExecResults() *ExecResult {
 	return er
 }
 
-func printExecResults(r *ExecResult) {
+// Print prints ExecResults in a nice way
+func (r *ExecResult) Print() {
 	msg := fmt.Sprintf(" Hosts processed: %d, success: %d, error: %d    ",
 		len(r.Success)+len(r.Error), len(r.Success), len(r.Error))
 	h := term.HR(len(msg))
 	fmt.Println(term.Green(h))
 	fmt.Println(term.Green(msg))
 	fmt.Println(term.Green(h))
+}
+
+// PrintOutputMap prints collapsed-style output
+func (r *ExecResult) PrintOutputMap() {
+	for output, hosts := range r.OutputMap {
+		msg := fmt.Sprintf(" %s    ", strings.Join(hosts, ","))
+		tableWidth := len(msg) + 2
+		termWidth := term.GetTerminalWidth()
+		if tableWidth > termWidth {
+			tableWidth = termWidth
+		}
+		fmt.Println(term.Blue(term.HR(tableWidth)))
+		fmt.Println(term.Blue(msg))
+		fmt.Println(term.Blue(term.HR(tableWidth)))
+		fmt.Println(output)
+	}
 }
