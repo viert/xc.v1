@@ -226,11 +226,17 @@ func (w *Worker) run() {
 						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
 						for i, chunk := range chunks {
 							w.OutputChannel <- &WorkerOutput{chunk, OutputTypeDebug, task.Host, task.Port, 0}
-							if i == 0 && shouldSkipEcho && len(chunk) == 1 {
+							if i == 0 && shouldSkipEcho {
 								// skip echo \n after password send
 								shouldSkipEcho = false
-								continue
+								for len(chunk) > 0 && chunk[0] == 10 || chunk[0] == 13 {
+									chunk = chunk[1:]
+								}
+								if len(chunk) == 0 {
+									continue
+								}
 							}
+
 							if !passwordSent && isPasswdPrompt(chunk) {
 								stdin.Write([]byte(task.RaisePasswd + "\n"))
 								passwordSent = true
