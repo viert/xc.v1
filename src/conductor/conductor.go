@@ -125,8 +125,25 @@ func (c *Conductor) decodeJSON(jsonData []byte) error {
 	return json.Unmarshal(jsonData, c.data)
 }
 
+// Load loads groups from cache or inventoree
 func (c *Conductor) Load() error {
 	return c.load(false)
+}
+
+// Reload tries to load groups from inventoree only
+func (c *Conductor) Reload() error {
+	data, err := c.loadJSONHTTP()
+	if err != nil {
+		return err
+	}
+	err = c.decodeJSON(data)
+	if err != nil {
+		// Something's wrong with backend, falling back to (expired) cache
+		return err
+	}
+	c.saveCache()
+	c.build()
+	return nil
 }
 
 func (c *Conductor) load(expiredOk bool) error {
@@ -164,7 +181,11 @@ func (c *Conductor) load(expiredOk bool) error {
 		}
 		c.saveCache()
 	}
+	c.build()
+	return nil
+}
 
+func (c *Conductor) build() {
 	for _, dc := range c.data.Data.Datacenters {
 		c.cache.datacenters._id[dc.ID] = dc
 		c.cache.datacenters.name[dc.Name] = dc
@@ -196,8 +217,6 @@ func (c *Conductor) load(expiredOk bool) error {
 			host.Datacenter = c.cache.datacenters._id[host.DatacenterID]
 		}
 	}
-
-	return nil
 }
 
 func CompleteHost(line string) []string {
