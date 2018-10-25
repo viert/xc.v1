@@ -89,11 +89,12 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 		cli.curDir = "."
 	}
 
+	executer.Initialize(cfg.SSHThreads, cfg.User)
+	executer.SetDebug(cli.debug)
+
 	cli.doRaise("raise", cfg.RaiseType, cfg.RaiseType)
 	cli.doMode("mode", cfg.Mode, cfg.Mode)
 	cli.setPrompt()
-	executer.Initialize(cfg.SSHThreads, cli.user)
-
 	cli.runRC(cfg.RCfile)
 
 	return cli, nil

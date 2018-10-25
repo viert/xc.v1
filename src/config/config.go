@@ -2,6 +2,7 @@ package config
 
 import (
 	"conductor"
+	"fmt"
 	"github.com/chzyer/readline"
 	"github.com/viert/properties"
 	"io/ioutil"
