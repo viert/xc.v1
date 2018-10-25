@@ -226,9 +226,9 @@ func (w *Worker) run() {
 					stdoutFinished = true
 				} else {
 					if n > 0 {
+						w.OutputChannel <- &WorkerOutput{buf[:n], OutputTypeDebug, task.Host, task.Port, 0}
 						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
 						for i, chunk := range chunks {
-							w.OutputChannel <- &WorkerOutput{chunk, OutputTypeDebug, task.Host, task.Port, 0}
 							if i == 0 && shouldSkipEcho {
 								// skip echo \n after password send
 								shouldSkipEcho = false
@@ -266,9 +266,9 @@ func (w *Worker) run() {
 					stderrFinished = true
 				} else {
 					if n > 0 {
+						w.OutputChannel <- &WorkerOutput{buf[:n], OutputTypeDebug, task.Host, task.Port, 0}
 						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
 						for _, chunk := range chunks {
-							w.OutputChannel <- &WorkerOutput{chunk, OutputTypeDebug, task.Host, task.Port, 0}
 							if len(chunk) > 0 {
 								if !shouldDropChunk(chunk) {
 									w.OutputChannel <- &WorkerOutput{chunk, OutputTypeStderr, task.Host, task.Port, 0}
