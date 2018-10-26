@@ -23,7 +23,13 @@ func createSerialCmd(host string, argv string) *exec.Cmd {
 		params = append(params, "-o", option)
 	}
 
-	if argv != "" {
+	if argv == "" {
+		if currentRaise == remote.RaiseTypeSudo {
+			params = append(params, "sudo", "bash")
+		} else if currentRaise == remote.RaiseTypeSu {
+			params = append(params, "su", "-")
+		}
+	} else {
 		if currentRaise == remote.RaiseTypeSudo {
 			params = append(params, "sudo")
 		} else if currentRaise == remote.RaiseTypeSu {
@@ -32,6 +38,7 @@ func createSerialCmd(host string, argv string) *exec.Cmd {
 		// argv = fmt.Sprintf("\"%s\"", argv)
 		params = append(params, "bash", "-c", argv)
 	}
+
 	cmd := exec.Command("ssh", params...)
 	return cmd
 }
