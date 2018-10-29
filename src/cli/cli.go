@@ -432,6 +432,8 @@ func (c *Cli) doSSH(name string, argsLine string, args ...string) {
 	}
 
 	executer.SetUser(c.user)
+	executer.SetPasswd(c.raisePasswd)
+	executer.SetRaise(c.raiseType)
 	executer.Serial(hosts, "", 0)
 }
 

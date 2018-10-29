@@ -152,7 +152,7 @@ func isWrongPassword(chunk []byte) bool {
 	return exprWrongPassword.Match(chunk)
 }
 
-func makePipes(cmd *exec.Cmd) (stdout *nbreader.NBReader, stderr *nbreader.NBReader, stdin io.WriteCloser, err error) {
+func MakePipes(cmd *exec.Cmd) (stdout *nbreader.NBReader, stderr *nbreader.NBReader, stdin io.WriteCloser, err error) {
 	so, err := cmd.StdoutPipe()
 	if err != nil {
 		return
@@ -198,7 +198,7 @@ func (w *Worker) run() {
 			cmd := createExecCmd(task)
 			cmd.Env = append(os.Environ(), "LC_ALL=en_US.UTF-8")
 
-			stdout, stderr, stdin, err := makePipes(cmd)
+			stdout, stderr, stdin, err := MakePipes(cmd)
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -304,7 +304,7 @@ func (w *Worker) run() {
 			cmd := createDistributeCmd(task)
 			cmd.Env = append(os.Environ(), "LC_ALL=en_US.UTF-8")
 
-			stdout, stderr, _, err := makePipes(cmd)
+			stdout, stderr, _, err := MakePipes(cmd)
 			if err != nil {
 				fmt.Println(err)
 				continue
