@@ -14,6 +14,7 @@ import (
 func Serial(hosts []string, cmd string, delay int) *ExecResult {
 	var task *remote.WorkerTask
 	var exitCode int
+	var interactive = cmd == ""
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT)
@@ -38,6 +39,7 @@ runLoop:
 			currentUser,
 			cmd,
 			currentRaise,
+			interactive,
 			currentPasswd,
 			"",
 			"",

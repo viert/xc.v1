@@ -52,6 +52,7 @@ type WorkerTask struct {
 	User               string
 	Argv               string
 	Raise              RaiseType
+	Interactive        bool
 	RaisePasswd        string
 	DistLocalFilename  string
 	DistRemoteFilename string

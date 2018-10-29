@@ -55,6 +55,7 @@ func RunTaskTTY(task *WorkerTask) int {
 	var (
 		passwordSent   = false
 		shouldSkipEcho = false
+		taskStopped    = false
 		buf            []byte
 		n              int
 		err            error
@@ -89,42 +90,59 @@ func RunTaskTTY(task *WorkerTask) int {
 	buf = make([]byte, bufferSize)
 
 	go func() {
-		for {
-			n, err = ptmx.Read(buf)
-			if err != nil {
-				// EOF
-				break
-			}
+		if task.Raise != RaiseTypeNone {
+			for {
+				n, err = ptmx.Read(buf)
+				if err != nil {
+					// EOF
+					break
+				}
 
-			if !passwordSent && exprPasswdPrompt.Match(buf[:n]) {
-				ptmx.Write([]byte(task.RaisePasswd + "\n"))
-				passwordSent = true
-				shouldSkipEcho = true
-				continue
-			}
-
-			if passwordSent {
-				if shouldSkipEcho {
-					shouldSkipEcho = false
+				if !passwordSent && exprPasswdPrompt.Match(buf[:n]) {
+					ptmx.Write([]byte(task.RaisePasswd + "\n"))
+					passwordSent = true
+					shouldSkipEcho = true
 					continue
 				}
-				if exprWrongPassword.Match(buf[:n]) {
-					term.Errorf("Incorrect password\n")
-					cmd.Process.Kill()
-					break
-				} else {
-					os.Stdout.Write(buf[:n])
-					break
-				}
-			}
 
-			os.Stdout.Write(buf[:n])
+				if passwordSent {
+					if shouldSkipEcho {
+						shouldSkipEcho = false
+						continue
+					}
+					if exprWrongPassword.Match(buf[:n]) {
+						term.Errorf("%s: Incorrect password\n", task.Host)
+						cmd.Process.Kill()
+						break
+					} else {
+						os.Stdout.Write(buf[:n])
+						break
+					}
+				}
+				os.Stdout.Write(buf[:n])
+			}
 		}
-		// go io.Copy(ptmx, os.Stdin)
+		if task.Interactive {
+			go func() {
+				// OS-level non-blocking version of io.Copy
+				// This is how we get rid of endless waiting for
+				// at least one symbol per host after all tasks are done
+				syscall.SetNonblock(int(os.Stdin.Fd()), true)
+				inb := make([]byte, bufferSize)
+				defer syscall.SetNonblock(int(os.Stdin.Fd()), false)
+				for !taskStopped {
+					n, _ := os.Stdin.Read(inb)
+					if n > 0 {
+						ptmx.Write(inb[:n])
+					}
+				}
+			}()
+		}
 		io.Copy(os.Stdout, ptmx)
 	}()
 
 	err = cmd.Wait()
+	taskStopped = true
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			ws := exitErr.Sys().(syscall.WaitStatus)
@@ -134,6 +152,5 @@ func RunTaskTTY(task *WorkerTask) int {
 			exitCode = errMacOSexit
 		}
 	}
-	defer ptmx.Write([]byte("\n\r\n\r"))
 	return exitCode
 }
