@@ -15,15 +15,16 @@ type XcConfig struct {
 	Readline  *readline.Config
 	Conductor *conductor.ConductorConfig
 
-	User         string
-	SSHThreads   int
-	PingCount    int
-	RemoteTmpdir string
-	Mode         string
-	RaiseType    string
-	Delay        int
-	RCfile       string
-	Debug        bool
+	User              string
+	SSHThreads        int
+	SSHConnectTimeout int
+	PingCount         int
+	RemoteTmpdir      string
+	Mode              string
+	RaiseType         string
+	Delay             int
+	RCfile            string
+	Debug             bool
 }
 
 const (
@@ -37,6 +38,7 @@ raise = none
 
 [executer]
 ssh_threads = 50
+ssh_connect_timeout = 1
 ping_count = 5
 remote_tmpdir = /tmp
 delay = 0
@@ -58,18 +60,19 @@ var (
 		EOFPrompt:         "exit",
 		HistorySearchFold: true,
 	}
-	defaultHistoryFile = "~/.xc_history"
-	defaultCacheDir    = "~/.xc_cache"
-	defaultRCfile      = "~/.xcrc"
-	defaultCacheTTL    = 24
-	defaultUser        = os.Getenv("USER")
-	defaultThreads     = 50
-	defaultTmpDir      = "/tmp"
-	defaultPingCount   = 5
-	defaultDelay       = 0
-	defaultMode        = "parallel"
-	defaultRaiseType   = "none"
-	defaultDebug       = false
+	defaultHistoryFile       = "~/.xc_history"
+	defaultCacheDir          = "~/.xc_cache"
+	defaultRCfile            = "~/.xcrc"
+	defaultCacheTTL          = 24
+	defaultUser              = os.Getenv("USER")
+	defaultThreads           = 50
+	defaultTmpDir            = "/tmp"
+	defaultPingCount         = 5
+	defaultDelay             = 0
+	defaultMode              = "parallel"
+	defaultRaiseType         = "none"
+	defaultDebug             = false
+	defaultSSHConnectTimeout = 1
 )
 
 func expandPath(path string) string {
@@ -142,6 +145,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		threads = defaultThreads
 	}
 	xc.SSHThreads = threads
+
+	ctimeout, err := props.GetInt("executer.ssh_connect_timeout")
+	if err != nil {
+		ctimeout = defaultSSHConnectTimeout
+	}
+	xc.SSHConnectTimeout = ctimeout
 
 	delay, err := props.GetInt("executer.delay")
 	if err != nil {

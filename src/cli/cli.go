@@ -43,6 +43,7 @@ type Cli struct {
 	user                string
 	raiseType           remote.RaiseType
 	raisePasswd         string
+	connectTimeout      string
 	curDir              string
 	aliasRecursionCount int
 	delay               int
@@ -82,6 +83,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.remoteTmpDir = cfg.RemoteTmpdir
 	cli.delay = cfg.Delay
 	cli.debug = cfg.Debug
+	cli.connectTimeout = fmt.Sprintf("%d", cfg.SSHConnectTimeout)
 
 	cli.curDir, err = os.Getwd()
 	if err != nil {
@@ -95,6 +97,11 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.doRaise("raise", cfg.RaiseType, cfg.RaiseType)
 	cli.doMode("mode", cfg.Mode, cfg.Mode)
 	cli.setPrompt()
+	cli.doConnectTimeout(
+		"connect_timeout",
+		cli.connectTimeout,
+		cli.connectTimeout,
+	)
 	cli.runRC(cfg.RCfile)
 
 	return cli, nil
@@ -143,6 +150,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["delay"] = c.doDelay
 	c.handlers["debug"] = c.doDebug
 	c.handlers["reload"] = c.doReload
+	c.handlers["connect_timeout"] = c.doConnectTimeout
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -585,4 +593,18 @@ func (c *Cli) doDebug(name string, argsLine string, args ...string) {
 
 func (c *Cli) doReload(name string, argsLine string, args ...string) {
 	conductor.Reload()
+}
+
+func (c *Cli) doConnectTimeout(name string, argsLine string, args ...string) {
+	if len(args) < 1 {
+		term.Warnf("connect_timeout = %s\n", c.connectTimeout)
+		return
+	}
+	ct, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		term.Errorf("Error reading connect timeout value: %s\n", err)
+		return
+	}
+	c.connectTimeout = fmt.Sprintf("%d", int(ct))
+	remote.SSHOptions["ConnectTimeout"] = c.connectTimeout
 }

@@ -28,7 +28,8 @@ func createSerialExecCmd(task *WorkerTask) *exec.Cmd {
 		fmt.Sprintf("%d", task.Port),
 	}
 
-	for _, option := range SSHOptions {
+	for opt, value := range SSHOptions {
+		option := fmt.Sprintf("%s=%s", opt, value)
 		params = append(params, "-o", option)
 	}
 

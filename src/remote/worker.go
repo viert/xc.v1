@@ -83,7 +83,11 @@ var (
 	exprLostConnection   = regexp.MustCompile(`[Ll]ost\sconnection`)
 
 	// SSHOptions defines generic SSH options to use in creating exec.Cmd
-	SSHOptions = []string{"PasswordAuthentication=no", "PubkeyAuthentication=yes", "StrictHostKeyChecking=no"}
+	SSHOptions = map[string]string{
+		"PasswordAuthentication": "no",
+		"PubkeyAuthentication":   "yes",
+		"StrictHostKeyChecking":  "no",
+	}
 )
 
 // NewWorker function creates a new Worker
@@ -102,7 +106,8 @@ func createDistributeCmd(task *WorkerTask) *exec.Cmd {
 		"-P",
 		fmt.Sprintf("%d", task.Port),
 	}
-	for _, option := range SSHOptions {
+	for opt, value := range SSHOptions {
+		option := fmt.Sprintf("%s=%s", opt, value)
 		params = append(params, "-o", option)
 	}
 	remoteExpr := fmt.Sprintf("%s@%s:%s", task.User, task.Host, task.DistRemoteFilename)
