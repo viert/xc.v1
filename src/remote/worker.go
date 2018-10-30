@@ -11,15 +11,6 @@ import (
 	"syscall"
 )
 
-// RaiseType is a enum of privilege raising types
-type RaiseType int
-
-const (
-	RaiseTypeNone RaiseType = iota
-	RaiseTypeSudo
-	RaiseTypeSu
-)
-
 // OutputType describes a type of output (stdout/stderr)
 type OutputType int
 
@@ -38,17 +29,6 @@ type Output struct {
 	OType      OutputType
 	Host       string
 	StatusCode int
-}
-
-// Task represents a task to be executed in parallel
-type Task struct {
-	HostName       string
-	User           string
-	RemoteFilename string
-	LocalFilename  string
-	Cmd            string
-	Raise          RaiseType
-	Password       string
 }
 
 // Worker
@@ -134,12 +114,13 @@ func (w *Worker) run() {
 			result = w.cmd(task)
 			w.data <- &Output{nil, OutputTypeExecFinished, task.HostName, result}
 		}
+
 		w.busy = false
 	}
 }
 
 func (w *Worker) cmd(task *Task) int {
-
+	return 0
 }
 
 func (w *Worker) copy(task *Task) int {
@@ -158,44 +139,54 @@ func (w *Worker) copy(task *Task) int {
 	stdoutFinished := false
 	stderrFinished := false
 
+	cmd.Start()
+
 	for {
 		if w.checkStop() {
 			taskForceStopped = true
 			break
 		}
 
-		// Reading (and dropping) stdout
-		buf = make([]byte, bufferSize)
-		n, err = stdout.Read(buf)
-		if err != nil {
-			// EOF
-			stdoutFinished = true
-		} else {
-			rb := make([]byte, n)
-			copy(rb, buf[:n])
-			w.data <- &Output{rb, OutputTypeDebug, task.HostName, 0}
-		}
-
-		// Reading stderr
-		buf = make([]byte, bufferSize)
-		n, err = stderr.Read(buf)
-		if err != nil {
-			// EOF
-			stderrFinished = true
-		} else {
-			if n > 0 {
-				chunks := bytes.SplitAfter(buf[:n], []byte{'\n'})
-				for _, chunk := range chunks {
-					if !shouldDropChunk(chunk) {
-						rb := make([]byte, len(chunk))
-						copy(rb, chunk)
-						w.data <- &Output{rb, OutputTypeStderr, task.HostName, 0}
-					}
+		if !stdoutFinished {
+			// Reading (and dropping) stdout
+			buf = make([]byte, bufferSize)
+			n, err = stdout.Read(buf)
+			if err != nil {
+				// EOF
+				stdoutFinished = true
+			} else {
+				if n > 0 {
+					rb := make([]byte, n)
+					copy(rb, buf[:n])
+					w.data <- &Output{rb, OutputTypeDebug, task.HostName, 0}
 				}
 			}
-			rb := make([]byte, n)
-			copy(rb, buf[:n])
-			w.data <- &Output{rb, OutputTypeDebug, task.HostName, -1}
+		}
+
+		if !stderrFinished {
+			// Reading stderr
+			buf = make([]byte, bufferSize)
+			n, err = stderr.Read(buf)
+			if err != nil {
+				// EOF
+				stderrFinished = true
+			} else {
+				if n > 0 {
+					chunks := bytes.SplitAfter(buf[:n], []byte{'\n'})
+					for _, chunk := range chunks {
+						if !shouldDropChunk(chunk) {
+							if len(chunk) > 0 {
+								rb := make([]byte, len(chunk))
+								copy(rb, chunk)
+								w.data <- &Output{rb, OutputTypeStderr, task.HostName, 0}
+							}
+						}
+					}
+					rb := make([]byte, n)
+					copy(rb, buf[:n])
+					w.data <- &Output{rb, OutputTypeDebug, task.HostName, -1}
+				}
+			}
 		}
 
 		if stdoutFinished && stderrFinished {

@@ -4,7 +4,7 @@ package remote
 type Pool struct {
 	workers []*Worker
 	queue   chan *Task
-	data    chan *Output
+	Data    chan *Output
 }
 
 // NewPool creates a Pool of a given size
@@ -12,9 +12,9 @@ func NewPool(size int) *Pool {
 	p := new(Pool)
 	p.workers = make([]*Worker, size)
 	p.queue = make(chan *Task, 65535)
-	p.data = make(chan *Output, 65535)
+	p.Data = make(chan *Output, 65535)
 	for i := 0; i < size; i++ {
-		p.workers[i] = NewWorker(p.queue, p.data)
+		p.workers[i] = NewWorker(p.queue, p.Data)
 	}
 	return p
 }
@@ -41,4 +41,18 @@ rmvLoop:
 func (p *Pool) Close() {
 	p.ForceStopAllTasks()
 	close(p.queue) // this should all the worker step out of range loop on queue chan and shut down
+}
+
+// Copy runs copy task
+func (p *Pool) Copy(host string, user string, local string, remote string) {
+	task := &Task{
+		HostName:       host,
+		User:           user,
+		LocalFilename:  local,
+		RemoteFilename: remote,
+		Cmd:            "",
+		Raise:          RaiseTypeNone,
+		Password:       "",
+	}
+	p.queue <- task
 }
