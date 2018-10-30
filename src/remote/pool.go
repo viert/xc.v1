@@ -56,3 +56,17 @@ func (p *Pool) Copy(host string, user string, local string, remote string) {
 	}
 	p.queue <- task
 }
+
+// Exec runs a command on a remote host
+func (p *Pool) Exec(host string, user string, raise RaiseType, pwd string, cmd string) {
+	task := &Task{
+		HostName:       host,
+		User:           user,
+		LocalFilename:  "",
+		RemoteFilename: "",
+		Cmd:            cmd,
+		Raise:          raise,
+		Password:       pwd,
+	}
+	p.queue <- task
+}
