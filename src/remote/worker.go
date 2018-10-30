@@ -194,7 +194,7 @@ execLoop:
 								continue
 							}
 							if passwordSent && exprWrongPassword.Match(chunk) {
-								w.data <- &Output{[]byte("wrong su/sudo password\n"), OutputTypeStderr, task.HostName, -1}
+								w.data <- &Output{[]byte("sudo: Authentication failure\n"), OutputTypeStdout, task.HostName, -1}
 								taskForceStopped = true
 								break execLoop
 							}
