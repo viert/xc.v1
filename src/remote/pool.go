@@ -1,98 +1,44 @@
 package remote
 
-import "fmt"
-
-// HostDescription describes a host:port pair
-type HostDescription struct {
-	Hostname string
-	Port     uint16
-}
-
 // Pool is a class representing a worker pool
 type Pool struct {
 	workers []*Worker
-	Queue   chan *WorkerTask
-	Output  chan *WorkerOutput
+	queue   chan *Task
+	data    chan *Output
 }
 
 // NewPool creates a Pool of a given size
 func NewPool(size int) *Pool {
 	p := new(Pool)
 	p.workers = make([]*Worker, size)
-	p.Queue = make(chan *WorkerTask, 65535)
-	p.Output = make(chan *WorkerOutput, 65535)
+	p.queue = make(chan *Task, 65535)
+	p.data = make(chan *Output, 65535)
 	for i := 0; i < size; i++ {
-		p.workers[i] = NewWorker(p.Queue, p.Output)
+		p.workers[i] = NewWorker(p.queue, p.data)
 	}
 	return p
 }
 
-// ExecTask creates an execution task and puts it on the queue
-func (p *Pool) ExecTask(hosts []HostDescription, argv string, user string, raise RaiseType, passwd string) {
-	var task *WorkerTask
-	var port uint16
-	for _, host := range hosts {
-		port = host.Port
-		if port == 0 {
-			port = 22
-		}
-		task = &WorkerTask{
-			TaskTypeExec,
-			host.Hostname,
-			port,
-			user,
-			fmt.Sprintf("\"%s\"", argv),
-			raise,
-			false,
-			passwd,
-			"",
-			"",
-		}
-		p.Queue <- task
-	}
-}
-
-// DistributeTask creates a distribution task and puts it on the queu
-func (p *Pool) DistributeTask(hosts []HostDescription, user string, localFilename string, remoteFilename string) {
-	var task *WorkerTask
-	var port uint16
-	for _, host := range hosts {
-		port = host.Port
-		if port == 0 {
-			port = 22
-		}
-		task = &WorkerTask{
-			TaskTypeDistribute,
-			host.Hostname,
-			port,
-			user,
-			"",
-			RaiseTypeNone,
-			false,
-			"",
-			localFilename,
-			remoteFilename,
-		}
-		p.Queue <- task
-	}
-}
-
-// StopAll stops all current worker tasks and clears the task queue
-// Returns number of workers which were forced to stop i.e. number of tasks dropped
-func (p *Pool) StopAll() int {
-clearLoop:
+// ForceStopAllTasks removes all pending tasks and force stops those in progress
+func (p *Pool) ForceStopAllTasks() {
+	// Remove all pending tasks from the queue
+rmvLoop:
 	for {
 		select {
-		case <-p.Queue:
+		case <-p.queue:
+			continue
 		default:
-			break clearLoop
+			break rmvLoop
 		}
 	}
-	c := 0
+
 	for _, wrk := range p.workers {
-		if wrk.ForceStop() {
-			c++
-		}
+		wrk.ForceStop()
 	}
-	return c
+}
+
+// Close shuts down the pool itself and all its workers
+func (p *Pool) Close() {
+	p.ForceStopAllTasks()
+	close(p.queue) // this should all the worker step out of range loop on queue chan and shut down
 }
