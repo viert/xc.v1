@@ -62,6 +62,7 @@ const (
 
 	errMacOsExit = 32500 + iota
 	errForceStop
+	errCopyFailed
 )
 
 // NewWorker creates a worker
@@ -105,6 +106,7 @@ func (w *Worker) run() {
 			w.data <- &Output{nil, OutputTypeCopyFinished, task.HostName, result}
 			if result != 0 {
 				// if copying failed we can't proceed further with the task
+				w.data <- &Output{nil, OutputTypeExecFinished, task.HostName, errCopyFailed}
 				w.busy = false
 				continue
 			}

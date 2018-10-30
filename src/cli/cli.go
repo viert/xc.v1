@@ -93,6 +93,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 
 	executer.Initialize(cfg.SSHThreads, cfg.User)
 	executer.SetDebug(cli.debug)
+	executer.SetRemoteTmpdir(cli.remoteTmpDir)
 
 	cli.doRaise("raise", cfg.RaiseType, cfg.RaiseType)
 	cli.doMode("mode", cfg.Mode, cfg.Mode)
