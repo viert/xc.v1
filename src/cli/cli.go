@@ -530,7 +530,7 @@ func (c *Cli) doRunScript(name string, argsLine string, args ...string) {
 	}
 
 	now := time.Now().Format("20060102-150405")
-	remoteFilename := fmt.Sprintf("tmp.xc.%s_%s", now, localFilename)
+	remoteFilename := fmt.Sprintf("tmp.xc.%s_%s", now, filepath.Base(localFilename))
 	remoteFilename = filepath.Join(c.remoteTmpDir, remoteFilename)
 
 	executer.SetUser(c.user)
