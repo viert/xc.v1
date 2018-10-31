@@ -7,8 +7,9 @@ import (
 )
 
 type helpItem struct {
-	help  string
-	usage string
+	help    string
+	usage   string
+	isTopic bool
 }
 
 var (
@@ -21,7 +22,10 @@ Example:
     alias ls local ls               - this will create a local alias "ls" which actually runs "local ls"
     alias uptime p_exec #1 uptime   - this creates a local alias "uptime" which runs "p_exec <ARG> uptime"
                                       <ARG> will be taken from the alias command and put into p_exec command,
-                                      i.e. uptime %mygroup will run p_exec %mygroup uptime`,
+                                      i.e. uptime %mygroup will run p_exec %mygroup uptime
+
+Every alias created disappears after xc exits. To make an alias persistent put it into rcfile. 
+See "help rcfiles" for further info.`,
 		},
 
 		"cd": &helpItem{
@@ -55,9 +59,41 @@ Example:
 i.e. when you want to give a service some time to warm up before restarting it on next host.`,
 		},
 
+		"distribute": &helpItem{
+			usage: "<host_expression> <filename>",
+			help: `Distributes a local file to a number of hosts listed in "host_expression" in parallel.
+See "help expressions" for further info on <host_expression>.
+
+Example: distribute %mygroup hello.txt`,
+		},
+
+		"expressions": &helpItem{
+			help: `A lot of commands in xc use host expressions with a certain syntax to represent a list of hosts.
+Every expression is a comma-separated list of tokens, where token may be
+    - a single host,
+    - a single group,
+    - a single workgroup,
+and every item may optionally be limited to a particular datacenter, a given tag, 
+or even be completely excluded from the list.
+
+Some self-explanatory examples:
+    host1,host2                         - simple host list containing 2 hosts
+    %group1                             - a group of hosts taken from inventoree
+    %group1,host1                       - all hosts from group1, plus host1
+    %group1,-host2                      - all hosts from group1, excluding(!) host2
+    %group2@dc1                         - all hosts from group2, located in datacenter dc1
+    *myworkgroup@dc2,-%group3,host5     - all hosts from wg "myworkgroup" excluding hosts from group3, plus host5
+    %group5#tag1                        - all hosts from group5 tagged with tag1
+    
+You may combine any number of tokens keeping in mind that they are resolved left to right, so exclusions
+almost always should be on the righthand side. For example, "-host1,host1" will end up with host1 in list
+despite being excluded previously.`,
+			isTopic: true,
+		},
+
 		"help": &helpItem{
 			usage: "[<cmd>]",
-			help:  "Shows help on various commands",
+			help:  "Shows help on various commands and topics",
 		},
 	}
 )
@@ -69,7 +105,11 @@ func (c *Cli) doHelp(name string, argsLine string, args ...string) {
 	}
 
 	if hs, found := helpStrings[args[0]]; found {
-		fmt.Printf("\nCommand: %s %s\n\n", term.Colored(args[0], term.CWhite, true), hs.usage)
+		if hs.isTopic {
+			fmt.Printf("\nTopic: %s\n\n", term.Colored(args[0], term.CWhite, true))
+		} else {
+			fmt.Printf("\nCommand: %s %s\n\n", term.Colored(args[0], term.CWhite, true), hs.usage)
+		}
 		tokens := strings.Split(hs.help, "\n")
 		for _, token := range tokens {
 			fmt.Printf("    %s\n", token)
