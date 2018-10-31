@@ -29,7 +29,7 @@ type XcConfig struct {
 }
 
 const (
-	defaultConfigContents = `[main]
+	DefaultConfigContents = `[main]
 user = 
 mode = parallel
 history_file = ~/.xc_history
@@ -101,7 +101,7 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		}
 
 		if os.IsNotExist(err) {
-			err = ioutil.WriteFile(filename, []byte(defaultConfigContents), 0644)
+			err = ioutil.WriteFile(filename, []byte(DefaultConfigContents), 0644)
 			if err != nil {
 				return nil, err
 			}

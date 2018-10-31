@@ -13,6 +13,43 @@ type helpItem struct {
 }
 
 var (
+	execHelp = &helpItem{
+		usage: "<host_expression> <command>",
+		help: `Runs a command on a list of servers.
+
+List of hosts is represented by <host_expression> in its own syntax which can be learned 
+by using "help expressions" command.
+
+exec can proceed in 3 different modes: serial, parallel and collapse.
+
+In ` + term.Colored("serial", term.CWhite, true) + ` mode the command will be called server by server sequentally. Between servers in list 
+xc will hold for a delay which can be set with command "delay".
+
+In ` + term.Colored("parallel", term.CWhite, true) + ` mode the command will be executed simultaneously. All output will be prefixed by 
+host name which the output line belongs to. Output is (almost) non buffered so one can use
+parallel mode to run "infinite" commands like "tail -f" which is handy for watching logs from 
+the whole cluster in real-time.
+
+The ` + term.Colored("collapse", term.CWhite, true) + ` mode is a lot like the parallel mode however the whole output is hidden until
+the execution is over. In this mode xc prints the result grouped by the output so the differences
+between hosts become more obvious. Try running "exec %group cat /etc/redhat-release" on a big
+group of hosts in collapse mode to see if they have the same version of OS for example.
+
+While the execution mode can be switched by "mode" command, there's a couple of short-cuts: 
+    c_exec 
+    p_exec
+    s_exec 
+which are capable to run exec in collapse, parallel or serial mode correspondingly without switching
+the execution mode`,
+	}
+
+	modeHelp = `Switches execution mode
+
+To learn more about execution modes type "help exec".
+
+Xc has shortcuts for switching modes: just type "parallel", "serial" or "collapse" and it will 
+switch the mode correspondingly.`
+
 	helpStrings = map[string]*helpItem{
 		"alias": &helpItem{
 			usage: "<aliasname> <cmd> [<args>]",
@@ -31,21 +68,6 @@ See "help rcfiles" for further info.`,
 		"cd": &helpItem{
 			usage: "<dir>",
 			help:  "Changes working directory",
-		},
-
-		"collapse": &helpItem{
-			usage: "",
-			help:  "A short-cut for \"mode collapse\". See \"help mode\" for further info",
-		},
-
-		"parallel": &helpItem{
-			usage: "",
-			help:  "A short-cut for \"mode parallel\". See \"help mode\" for further info",
-		},
-
-		"serial": &helpItem{
-			usage: "",
-			help:  "A short-cut for \"mode serial\". See \"help mode\" for further info",
 		},
 
 		"debug": &helpItem{
@@ -91,9 +113,97 @@ despite being excluded previously.`,
 			isTopic: true,
 		},
 
+		"exec":   execHelp,
+		"s_exec": execHelp,
+		"c_exec": execHelp,
+		"p_exec": execHelp,
+
+		"exit": &helpItem{
+			usage: "",
+			help:  "Exits the xc program. You can also use Ctrl-D to quit xc.",
+		},
+
 		"help": &helpItem{
-			usage: "[<cmd>]",
+			usage: "[<command>]",
 			help:  "Shows help on various commands and topics",
+		},
+
+		"hostlist": &helpItem{
+			usage: "<host_expression>",
+			help: `Resolves the host expression and prints the resulting hostlist. To learn more about expressions
+use "help expressions" command`,
+		},
+
+		"local": &helpItem{
+			usage: "<command>",
+			help: `Runs local command. 
+
+For example you may want to ping a host without leaving the xc.
+This can be done by typing "local ping 1.1.1.1". For frequently used commands you may want to create 
+aliases like so: alias ping local ping #*. This will create an alias "ping" so you won't have to type
+"local" in front of "ping" anymore. To learn more about aliases type "help alias"`,
+		},
+
+		"mode": &helpItem{
+			usage: "<serial/parallel/collapse>",
+			help:  modeHelp,
+		},
+
+		"parallel": &helpItem{
+			usage: "",
+			help:  modeHelp,
+		},
+		"serial": &helpItem{
+			usage: "",
+			help:  modeHelp,
+		},
+		"collapse": &helpItem{
+			usage: "",
+			help:  modeHelp,
+		},
+
+		"passwd": &helpItem{
+			usage: "",
+			help:  `Sets the password for raising privileges`,
+		},
+
+		"progressbar": &helpItem{
+			usage: "[<on/off>]",
+			help:  `Sets the progressbar on or off. If no value is given, prints the current value.`,
+		},
+
+		"raise": &helpItem{
+			usage: "<none/sudo/su>",
+			help: `Sets the type of raising privileges during running the "exec" command. 
+If the value is "none", no attempts to raise privileges will be made.`,
+		},
+
+		"reload": &helpItem{
+			usage: "",
+			help:  `Reloads hosts and groups data from inventoree and rewrites the cache`,
+		},
+
+		"runscript": &helpItem{
+			usage: "<host_expression> <scriptname>",
+			help: `Runs a local script on a given list of hosts.
+
+To learn mode about <host_expression> type "help expressions".
+
+runscript simply copies the script to every server in the list and then
+run it according to current execution mode (Type "help exec" to learn more 
+on execution modes), i.e. it can run in parallel or sequentally like exec does.`,
+		},
+
+		"ssh": &helpItem{
+			usage: "<host_expression>",
+			help: `Starts ssh session to hosts one by one, raising the privileges if raise type is not "none" 
+("help raise" to learn more) and gives the control to user. When user exits the session
+xc moves on to the next server.`,
+		},
+
+		"user": &helpItem{
+			usage: "<username>",
+			help:  `Sets the username for all the execution commands. This is used to get access to hosts via ssh/scp.`,
 		},
 	}
 )
@@ -129,8 +239,8 @@ List of commands:
     debug                                  one shouldn't use this
     delay                                  sets a delay between hosts in serial mode
     distribute                             copies a file to a number of hosts in parallel
-    exit                                   exits the xc
     exec/c_exec/s_exec/p_exec              executes a remote command on a number of hosts
+    exit                                   exits the xc
     help                                   shows help on various topics
     hostlist                               resolves a host expression to a list of hosts
     local                                  starts a local command
