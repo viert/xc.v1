@@ -156,6 +156,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["reload"] = c.doReload
 	c.handlers["connect_timeout"] = c.doConnectTimeout
 	c.handlers["progressbar"] = c.doProgressBar
+	c.handlers["help"] = c.doHelp
 
 	commands := make([]string, len(c.handlers))
 	i := 0

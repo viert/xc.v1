@@ -30,6 +30,7 @@ func newXcCompleter(commands []string) *xcCompleter {
 	x.completers["cd"] = x.completeFiles
 	x.completers["distribute"] = x.completeDistribute
 	x.completers["runscript"] = x.completeDistribute
+	x.completers["help"] = staticCompleter(commands)
 	return x
 }
 
