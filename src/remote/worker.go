@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"regexp"
 	"syscall"
+	"time"
 )
 
 // OutputType describes a type of output (stdout/stderr)
@@ -268,6 +269,7 @@ func (w *Worker) copy(task *Task) int {
 	var buf []byte
 	var err error
 	var n int
+	var newData bool
 
 	params := sshOpts()
 	remoteExpr := fmt.Sprintf("%s@%s:%s", task.User, task.HostName, task.RemoteFilename)
@@ -288,6 +290,8 @@ func (w *Worker) copy(task *Task) int {
 			break
 		}
 
+		newData = false
+
 		if !stdoutFinished {
 			// Reading (and dropping) stdout
 			buf = make([]byte, bufferSize)
@@ -297,6 +301,7 @@ func (w *Worker) copy(task *Task) int {
 				stdoutFinished = true
 			} else {
 				if n > 0 {
+					newData = true
 					rb := make([]byte, n)
 					copy(rb, buf[:n])
 					w.data <- &Output{rb, OutputTypeDebug, task.HostName, 0}
@@ -313,6 +318,7 @@ func (w *Worker) copy(task *Task) int {
 				stderrFinished = true
 			} else {
 				if n > 0 {
+					newData = true
 					chunks := bytes.SplitAfter(buf[:n], []byte{'\n'})
 					for _, chunk := range chunks {
 						if !shouldDropChunk(chunk) {
@@ -332,6 +338,10 @@ func (w *Worker) copy(task *Task) int {
 
 		if stdoutFinished && stderrFinished {
 			break
+		}
+
+		if !newData {
+			time.Sleep(time.Millisecond * 30)
 		}
 	}
 

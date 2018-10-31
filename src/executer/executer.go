@@ -17,6 +17,7 @@ var (
 	currentPasswd       string
 	currentDebug        bool
 	currentRemoteTmpdir string
+	currentProgressBar  bool
 )
 
 // ExecResult represents result of execution of a task
@@ -59,6 +60,11 @@ func SetRaise(raise remote.RaiseType) {
 // SetPasswd sets current password
 func SetPasswd(passwd string) {
 	currentPasswd = passwd
+}
+
+// SetProgressBar sets current progressbar mode
+func SetProgressBar(pbar bool) {
+	currentProgressBar = pbar
 }
 
 // SetRemoteTmpdir sets current remote temp directory

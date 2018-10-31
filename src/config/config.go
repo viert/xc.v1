@@ -25,6 +25,7 @@ type XcConfig struct {
 	Delay             int
 	RCfile            string
 	Debug             bool
+	ProgressBar       bool
 }
 
 const (
@@ -40,6 +41,7 @@ raise = none
 ssh_threads = 50
 ssh_connect_timeout = 1
 ping_count = 5
+progress_bar = true
 remote_tmpdir = /tmp
 delay = 0
 
@@ -72,6 +74,7 @@ var (
 	defaultMode              = "parallel"
 	defaultRaiseType         = "none"
 	defaultDebug             = false
+	defaultProgressbar       = true
 	defaultSSHConnectTimeout = 1
 )
 
@@ -197,6 +200,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		dbg = defaultDebug
 	}
 	xc.Debug = dbg
+
+	pbar, err := props.GetBool("executer.progress_bar")
+	if err != nil {
+		pbar = defaultProgressbar
+	}
+	xc.ProgressBar = pbar
 
 	return xc, nil
 }

@@ -18,6 +18,7 @@ type xcCompleter struct {
 func newXcCompleter(commands []string) *xcCompleter {
 	x := &xcCompleter{commands, make(map[string]completeFunc)}
 	x.completers["mode"] = staticCompleter([]string{"collapse", "serial", "parallel"})
+	x.completers["debug"] = staticCompleter([]string{"on", "off"})
 	x.completers["progressbar"] = staticCompleter([]string{"on", "off"})
 	x.completers["raise"] = staticCompleter([]string{"none", "su", "sudo"})
 	x.completers["exec"] = x.completeExec
