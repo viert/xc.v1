@@ -41,12 +41,12 @@ type Worker struct {
 }
 
 var (
-	exprConnectionClosed = regexp.MustCompile(`([Ss]hared\s+)?[Cc]onnection\s+to\s+.+\s+closed\.?`)
-	exprPasswdPrompt     = regexp.MustCompile(`[Pp]assword`)
-	exprWrongPassword    = regexp.MustCompile(`[Ss]orry.+try.+again\.?`)
-	exprPermissionDenied = regexp.MustCompile(`[Pp]ermission\s+denied`)
-	exprLostConnection   = regexp.MustCompile(`[Ll]ost\sconnection`)
-	exprEcho             = regexp.MustCompile(`^[\n\r]+$`)
+	ExprConnectionClosed = regexp.MustCompile(`([Ss]hared\s+)?[Cc]onnection\s+to\s+.+\s+closed\.?`)
+	ExprPasswdPrompt     = regexp.MustCompile(`[Pp]assword`)
+	ExprWrongPassword    = regexp.MustCompile(`[Ss]orry.+try.+again\.?`)
+	ExprPermissionDenied = regexp.MustCompile(`[Pp]ermission\s+denied`)
+	ExprLostConnection   = regexp.MustCompile(`[Ll]ost\sconnection`)
+	ExprEcho             = regexp.MustCompile(`^[\n\r]+$`)
 
 	environment = []string{"LC_ALL=en_US.UTF-8", "LANG=en_US.UTF-8"}
 
@@ -61,9 +61,10 @@ var (
 const (
 	bufferSize = 4096
 
-	errMacOsExit = 32500 + iota
-	errForceStop
-	errCopyFailed
+	ErrMacOsExit = 32500 + iota
+	ErrForceStop
+	ErrCopyFailed
+	ErrTerminalError
 )
 
 // NewWorker creates a worker
@@ -81,7 +82,7 @@ func NewWorker(queue chan *Task, data chan *Output) *Worker {
 // In most of cases it does however some of the messages like
 // "Connection to host closed" or "Permission denied" should be dropped
 func shouldDropChunk(chunk []byte) bool {
-	if exprConnectionClosed.Match(chunk) || exprLostConnection.Match(chunk) {
+	if ExprConnectionClosed.Match(chunk) || ExprLostConnection.Match(chunk) {
 		return true
 	}
 	return false
@@ -107,7 +108,7 @@ func (w *Worker) run() {
 			w.data <- &Output{nil, OutputTypeCopyFinished, task.HostName, result}
 			if result != 0 {
 				// if copying failed we can't proceed further with the task
-				w.data <- &Output{nil, OutputTypeExecFinished, task.HostName, errCopyFailed}
+				w.data <- &Output{nil, OutputTypeExecFinished, task.HostName, ErrCopyFailed}
 				w.busy = false
 				continue
 			}
@@ -186,17 +187,17 @@ execLoop:
 					chunks := bytes.SplitAfter(buf[:n], []byte{'\n'})
 					for _, chunk := range chunks {
 						if chunkCount < 5 {
-							if !passwordSent && exprPasswdPrompt.Match(chunk) {
+							if !passwordSent && ExprPasswdPrompt.Match(chunk) {
 								stdin.Write([]byte(task.Password + "\n"))
 								passwordSent = true
 								shouldSkipEcho = true
 								continue
 							}
-							if shouldSkipEcho && exprEcho.Match(chunk) {
+							if shouldSkipEcho && ExprEcho.Match(chunk) {
 								shouldSkipEcho = true
 								continue
 							}
-							if passwordSent && exprWrongPassword.Match(chunk) {
+							if passwordSent && ExprWrongPassword.Match(chunk) {
 								w.data <- &Output{[]byte("sudo: Authentication failure\n"), OutputTypeStdout, task.HostName, -1}
 								taskForceStopped = true
 								break execLoop
@@ -248,7 +249,7 @@ execLoop:
 	exitCode := 0
 	if taskForceStopped {
 		cmd.Process.Kill()
-		exitCode = errForceStop
+		exitCode = ErrForceStop
 	} else {
 		err = cmd.Wait()
 		if err != nil {
@@ -257,7 +258,7 @@ execLoop:
 				exitCode = ws.ExitStatus()
 			} else {
 				// MacOS hack
-				exitCode = errMacOsExit
+				exitCode = ErrMacOsExit
 			}
 		}
 	}
@@ -348,7 +349,7 @@ func (w *Worker) copy(task *Task) int {
 	exitCode := 0
 	if taskForceStopped {
 		cmd.Process.Kill()
-		exitCode = errForceStop
+		exitCode = ErrForceStop
 	} else {
 		err = cmd.Wait()
 		if err != nil {
@@ -357,7 +358,7 @@ func (w *Worker) copy(task *Task) int {
 				exitCode = ws.ExitStatus()
 			} else {
 				// MacOS hack
-				exitCode = errMacOsExit
+				exitCode = ErrMacOsExit
 			}
 		}
 	}
