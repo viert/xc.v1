@@ -17,51 +17,36 @@ func Distribute(hosts []string, localFilename string, remoteFilename string) *Ex
 	defer signal.Reset()
 
 	result := newExecResults()
-	hds := make([]remote.HostDescription, len(hosts))
-	for i := 0; i < len(hosts); i++ {
-		hds[i].Hostname = hosts[i]
+	running := len(hosts)
+
+	for _, host := range hosts {
+		pool.Copy(host, currentUser, localFilename, remoteFilename)
 	}
 
-	running := len(hds)
-	pool.DistributeTask(hds, currentUser, localFilename, remoteFilename)
-
-runLoop:
-	for {
+	for running > 0 {
 		select {
-		case d := <-pool.Output:
+		case d := <-pool.Data:
 			switch d.OType {
-			case remote.OutputTypeStdout:
-				if !bytes.HasSuffix(d.Data, []byte{'\n'}) {
-					d.Data = append(d.Data, '\n')
+			case remote.OutputTypeCopyFinished:
+				running--
+				result.Codes[d.Host] = d.StatusCode
+				if d.StatusCode == 0 {
+					fmt.Printf("%s: copied OK\n", term.Blue(d.Host))
+					result.Success = append(result.Success, d.Host)
+				} else {
+					fmt.Printf("%s: Copy error\n", term.Red(d.Host))
+					result.Error = append(result.Error, d.Host)
 				}
-				fmt.Printf("%s: %s", term.Blue(d.Host), string(d.Data))
 			case remote.OutputTypeStderr:
 				if !bytes.HasSuffix(d.Data, []byte{'\n'}) {
 					d.Data = append(d.Data, '\n')
 				}
 				fmt.Printf("%s: %s", term.Red(d.Host), string(d.Data))
-			case remote.OutputTypeDebug:
-				if currentDebug {
-					fmt.Printf("%s(debug): %v\n", term.Red(d.Host), d.Data)
-				}
-			case remote.OutputTypeProcessFinished:
-				result.Codes[d.Host] = d.StatusCode
-				if d.StatusCode == 0 {
-					result.Success = append(result.Success, d.Host)
-					fmt.Println(term.Blue("+ Copied to " + d.Host))
-				} else {
-					result.Error = append(result.Error, d.Host)
-					fmt.Println(term.Red("- Failed to copy to " + d.Host))
-				}
-				running--
-				if running == 0 {
-					break runLoop
-				}
 			}
 		case <-sigs:
-			result.Stopped = pool.StopAll()
-		default:
+			result.Stopped = pool.ForceStopAllTasks()
 		}
 	}
+
 	return result
 }

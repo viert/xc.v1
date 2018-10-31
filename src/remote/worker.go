@@ -9,78 +9,46 @@ import (
 	"os/exec"
 	"regexp"
 	"syscall"
-)
-
-// RaiseType is a enum of privilege raising types
-type RaiseType int
-
-const (
-	RaiseTypeNone RaiseType = iota
-	RaiseTypeSudo
-	RaiseTypeSu
+	"time"
 )
 
 // OutputType describes a type of output (stdout/stderr)
 type OutputType int
-
-// WorkerTaskType describes the type of a task
-type WorkerTaskType int
 
 // Enum of OutputTypes
 const (
 	OutputTypeStdout OutputType = iota
 	OutputTypeStderr
 	OutputTypeDebug
-	OutputTypeProcessFinished
+	OutputTypeCopyFinished
+	OutputTypeExecFinished
 )
 
-// Enum of TaskTypes
-const (
-	TaskTypeExec WorkerTaskType = iota
-	TaskTypeDistribute
-)
-
-const (
-	bufferSize = 4096
-)
-
-// WorkerTask describes a task to process by a Worker
-type WorkerTask struct {
-	TaskType           WorkerTaskType
-	Host               string
-	Port               uint16
-	User               string
-	Argv               string
-	Raise              RaiseType
-	Interactive        bool
-	RaisePasswd        string
-	DistLocalFilename  string
-	DistRemoteFilename string
-}
-
-// WorkerOutput is a struct with a chunk of task output
-type WorkerOutput struct {
+// Output is a struct with a chunk of task output
+type Output struct {
 	Data       []byte
 	OType      OutputType
 	Host       string
-	Port       uint16
 	StatusCode int
 }
 
-// Worker is a background Worker processing remote tasks
+// Worker
 type Worker struct {
-	TaskQueue     chan *WorkerTask
-	OutputChannel chan *WorkerOutput
-	stop          chan bool
-	busy          bool
+	queue chan *Task
+	data  chan *Output
+	stop  chan bool
+	busy  bool
 }
 
 var (
-	exprConnectionClosed = regexp.MustCompile(`([Ss]hared\s+)?[Cc]onnection\s+to\s+.+\s+closed\.?`)
-	exprPasswdPrompt     = regexp.MustCompile(`[Pp]assword`)
-	exprWrongPassword    = regexp.MustCompile(`[Ss]orry.+try.+again\.?`)
-	exprPermissionDenied = regexp.MustCompile(`[Pp]ermission\s+denied`)
-	exprLostConnection   = regexp.MustCompile(`[Ll]ost\sconnection`)
+	ExprConnectionClosed = regexp.MustCompile(`([Ss]hared\s+)?[Cc]onnection\s+to\s+.+\s+closed\.?`)
+	ExprPasswdPrompt     = regexp.MustCompile(`[Pp]assword`)
+	ExprWrongPassword    = regexp.MustCompile(`[Ss]orry.+try.+again\.?`)
+	ExprPermissionDenied = regexp.MustCompile(`[Pp]ermission\s+denied`)
+	ExprLostConnection   = regexp.MustCompile(`[Ll]ost\sconnection`)
+	ExprEcho             = regexp.MustCompile(`^[\n\r]+$`)
+
+	environment = []string{"LC_ALL=en_US.UTF-8", "LANG=en_US.UTF-8"}
 
 	// SSHOptions defines generic SSH options to use in creating exec.Cmd
 	SSHOptions = map[string]string{
@@ -90,76 +58,324 @@ var (
 	}
 )
 
-// NewWorker function creates a new Worker
-func NewWorker(queue chan *WorkerTask, output chan *WorkerOutput) *Worker {
+const (
+	bufferSize = 4096
+
+	ErrMacOsExit = 32500 + iota
+	ErrForceStop
+	ErrCopyFailed
+	ErrTerminalError
+)
+
+// NewWorker creates a worker
+func NewWorker(queue chan *Task, data chan *Output) *Worker {
 	w := new(Worker)
-	w.TaskQueue = queue
-	w.OutputChannel = output
+	w.queue = queue
+	w.data = data
 	w.stop = make(chan bool)
 	w.busy = false
 	go w.run()
 	return w
 }
 
-func createDistributeCmd(task *WorkerTask) *exec.Cmd {
-	params := []string{
-		"-P",
-		fmt.Sprintf("%d", task.Port),
-	}
-	for opt, value := range SSHOptions {
-		option := fmt.Sprintf("%s=%s", opt, value)
-		params = append(params, "-o", option)
-	}
-	remoteExpr := fmt.Sprintf("%s@%s:%s", task.User, task.Host, task.DistRemoteFilename)
-	params = append(params, task.DistLocalFilename, remoteExpr)
-	cmd := exec.Command("scp", params...)
-	return cmd
-}
-
-func createExecCmd(task *WorkerTask) *exec.Cmd {
-	params := []string{
-		"-tt",
-		"-l",
-		task.User,
-		task.Host,
-		"-p",
-		fmt.Sprintf("%d", task.Port),
-	}
-
-	for opt, value := range SSHOptions {
-		option := fmt.Sprintf("%s=%s", opt, value)
-		params = append(params, "-o", option)
-	}
-
-	if task.Raise == RaiseTypeSudo {
-		params = append(params, "sudo")
-	} else if task.Raise == RaiseTypeSu {
-		params = append(params, "su", "-", "-c")
-	}
-	params = append(params, "bash", "-c", task.Argv)
-	cmd := exec.Command("ssh", params...)
-	return cmd
-}
-
 // shouldDropChunk checks if a chunk of data needs to be sent
 // In most of cases it does however some of the messages like
 // "Connection to host closed" or "Permission denied" should be dropped
 func shouldDropChunk(chunk []byte) bool {
-	if exprConnectionClosed.Match(chunk) || exprLostConnection.Match(chunk) {
+	if ExprConnectionClosed.Match(chunk) || ExprLostConnection.Match(chunk) {
 		return true
 	}
 	return false
 }
 
-func isPasswdPrompt(chunk []byte) bool {
-	return exprPasswdPrompt.Match(chunk)
+func (w *Worker) run() {
+	var result int
+
+	for task := range w.queue {
+		// Every task consists of copying part and executing part
+		// It can contain both or just one of them
+		// If there are both parts, worker copies data and then runs
+		// the given command. This behaviour is handy for runscript
+		// command when the script is being copied to a remote server
+		// and called right after it.
+
+		// set worker busy flag
+		w.busy = true
+
+		// does task have anything to copy?
+		if task.RemoteFilename != "" && task.LocalFilename != "" {
+			result = w.copy(task)
+			w.data <- &Output{nil, OutputTypeCopyFinished, task.HostName, result}
+			if result != 0 {
+				// if copying failed we can't proceed further with the task
+				w.data <- &Output{nil, OutputTypeExecFinished, task.HostName, ErrCopyFailed}
+				w.busy = false
+				continue
+			}
+		}
+
+		// does task have anything to run?
+		if task.Cmd != "" {
+			result = w.cmd(task)
+			w.data <- &Output{nil, OutputTypeExecFinished, task.HostName, result}
+		}
+
+		w.busy = false
+	}
 }
 
-func isWrongPassword(chunk []byte) bool {
-	return exprWrongPassword.Match(chunk)
+func (w *Worker) cmd(task *Task) int {
+	var buf []byte
+	var rb []byte
+	var err error
+	var n int
+	var passwordSent bool
+
+	params := []string{
+		"-tt",
+		"-l",
+		task.User,
+	}
+	params = append(params, sshOpts()...)
+	params = append(params, task.HostName)
+
+	switch task.Raise {
+	case RaiseTypeNone:
+		params = append(params, "bash", "-c", task.Cmd)
+		passwordSent = true
+	case RaiseTypeSudo:
+		params = append(params, "sudo", "bash", "-c", task.Cmd)
+		passwordSent = false
+	case RaiseTypeSu:
+		params = append(params, "su", "-", "-c", task.Cmd)
+		passwordSent = false
+	}
+
+	cmd := exec.Command("ssh", params...)
+	cmd.Env = append(os.Environ(), environment...)
+
+	stdout, stderr, stdin, err := makeCmdPipes(cmd)
+	taskForceStopped := false
+	stdoutFinished := false
+	stderrFinished := false
+	shouldSkipEcho := false
+	chunkCount := 0
+
+	cmd.Start()
+
+execLoop:
+	for {
+		if w.checkStop() {
+			taskForceStopped = true
+			break
+		}
+
+		if !stdoutFinished {
+			// reading stdout
+			buf = make([]byte, bufferSize)
+			n, err = stdout.Read(buf)
+			if err != nil {
+				// EOF
+				stdoutFinished = true
+			} else {
+				if n > 0 {
+					rb = make([]byte, n)
+					copy(rb, buf[:n])
+					w.data <- &Output{rb, OutputTypeDebug, task.HostName, -1}
+
+					chunkCount++
+					chunks := bytes.SplitAfter(buf[:n], []byte{'\n'})
+					for _, chunk := range chunks {
+						if chunkCount < 5 {
+							if !passwordSent && ExprPasswdPrompt.Match(chunk) {
+								stdin.Write([]byte(task.Password + "\n"))
+								passwordSent = true
+								shouldSkipEcho = true
+								continue
+							}
+							if shouldSkipEcho && ExprEcho.Match(chunk) {
+								shouldSkipEcho = true
+								continue
+							}
+							if passwordSent && ExprWrongPassword.Match(chunk) {
+								w.data <- &Output{[]byte("sudo: Authentication failure\n"), OutputTypeStdout, task.HostName, -1}
+								taskForceStopped = true
+								break execLoop
+							}
+						}
+
+						if len(chunk) > 0 {
+							rb = make([]byte, len(chunk))
+							copy(rb, chunk)
+							w.data <- &Output{rb, OutputTypeStdout, task.HostName, -1}
+						}
+					}
+				}
+			}
+		}
+
+		if !stderrFinished {
+			// reading stderr
+			buf = make([]byte, bufferSize)
+			n, err = stderr.Read(buf)
+			if err != nil {
+				// EOF
+				stderrFinished = true
+			} else {
+				if n > 0 {
+					rb = make([]byte, n)
+					copy(rb, buf[:n])
+					w.data <- &Output{rb, OutputTypeDebug, task.HostName, -1}
+
+					chunks := bytes.SplitAfter(buf[:n], []byte{'\n'})
+					for _, chunk := range chunks {
+						if len(chunk) > 0 {
+							if !shouldDropChunk(chunk) {
+								rb = make([]byte, len(chunk))
+								copy(rb, chunk)
+								w.data <- &Output{rb, OutputTypeStderr, task.HostName, -1}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if stdoutFinished && stderrFinished {
+			break
+		}
+	}
+
+	exitCode := 0
+	if taskForceStopped {
+		cmd.Process.Kill()
+		exitCode = ErrForceStop
+	} else {
+		err = cmd.Wait()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				ws := exitErr.Sys().(syscall.WaitStatus)
+				exitCode = ws.ExitStatus()
+			} else {
+				// MacOS hack
+				exitCode = ErrMacOsExit
+			}
+		}
+	}
+
+	return exitCode
 }
 
-func MakePipes(cmd *exec.Cmd) (stdout *nbreader.NBReader, stderr *nbreader.NBReader, stdin io.WriteCloser, err error) {
+func (w *Worker) copy(task *Task) int {
+	var buf []byte
+	var err error
+	var n int
+	var newData bool
+
+	params := sshOpts()
+	remoteExpr := fmt.Sprintf("%s@%s:%s", task.User, task.HostName, task.RemoteFilename)
+	params = append(params, task.LocalFilename, remoteExpr)
+	cmd := exec.Command("scp", params...)
+	cmd.Env = append(os.Environ(), environment...)
+
+	stdout, stderr, _, err := makeCmdPipes(cmd)
+	taskForceStopped := false
+	stdoutFinished := false
+	stderrFinished := false
+
+	cmd.Start()
+
+	for {
+		if w.checkStop() {
+			taskForceStopped = true
+			break
+		}
+
+		newData = false
+
+		if !stdoutFinished {
+			// Reading (and dropping) stdout
+			buf = make([]byte, bufferSize)
+			n, err = stdout.Read(buf)
+			if err != nil {
+				// EOF
+				stdoutFinished = true
+			} else {
+				if n > 0 {
+					newData = true
+					rb := make([]byte, n)
+					copy(rb, buf[:n])
+					w.data <- &Output{rb, OutputTypeDebug, task.HostName, 0}
+				}
+			}
+		}
+
+		if !stderrFinished {
+			// Reading stderr
+			buf = make([]byte, bufferSize)
+			n, err = stderr.Read(buf)
+			if err != nil {
+				// EOF
+				stderrFinished = true
+			} else {
+				if n > 0 {
+					newData = true
+					chunks := bytes.SplitAfter(buf[:n], []byte{'\n'})
+					for _, chunk := range chunks {
+						if !shouldDropChunk(chunk) {
+							if len(chunk) > 0 {
+								rb := make([]byte, len(chunk))
+								copy(rb, chunk)
+								w.data <- &Output{rb, OutputTypeStderr, task.HostName, 0}
+							}
+						}
+					}
+					rb := make([]byte, n)
+					copy(rb, buf[:n])
+					w.data <- &Output{rb, OutputTypeDebug, task.HostName, -1}
+				}
+			}
+		}
+
+		if stdoutFinished && stderrFinished {
+			break
+		}
+
+		if !newData {
+			time.Sleep(time.Millisecond * 30)
+		}
+	}
+
+	exitCode := 0
+	if taskForceStopped {
+		cmd.Process.Kill()
+		exitCode = ErrForceStop
+	} else {
+		err = cmd.Wait()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				ws := exitErr.Sys().(syscall.WaitStatus)
+				exitCode = ws.ExitStatus()
+			} else {
+				// MacOS hack
+				exitCode = ErrMacOsExit
+			}
+		}
+	}
+
+	return exitCode
+}
+
+func sshOpts() (params []string) {
+	params = make([]string, 0)
+	for opt, value := range SSHOptions {
+		option := fmt.Sprintf("%s=%s", opt, value)
+		params = append(params, "-o", option)
+	}
+	return
+}
+
+func makeCmdPipes(cmd *exec.Cmd) (stdout *nbreader.NBReader, stderr *nbreader.NBReader, stdin io.WriteCloser, err error) {
 	so, err := cmd.StdoutPipe()
 	if err != nil {
 		return
@@ -176,215 +392,17 @@ func MakePipes(cmd *exec.Cmd) (stdout *nbreader.NBReader, stderr *nbreader.NBRea
 	return
 }
 
-func (w *Worker) run() {
-	var taskStopped bool
-	var taskForceStopped bool
-	var passwordSent bool
-	var shouldSkipEcho bool
-	var n int
-	var buf []byte
-
-	for task := range w.TaskQueue {
-		if task == nil {
-			return
-		}
-
-		w.busy = true
-		taskForceStopped = false
-		taskStopped = false
-
-		switch task.TaskType {
-		case TaskTypeExec:
-			passwordSent = false
-			shouldSkipEcho = false
-
-			if task.Raise == RaiseTypeNone {
-				passwordSent = true
-			}
-
-			cmd := createExecCmd(task)
-			cmd.Env = append(os.Environ(), "LC_ALL=en_US.UTF-8")
-
-			stdout, stderr, stdin, err := MakePipes(cmd)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			cmd.Start()
-			stderrFinished := false
-			stdoutFinished := false
-
-		execTaskLoop:
-			for !taskStopped {
-
-				select {
-				case <-w.stop:
-					taskStopped = true
-					taskForceStopped = true
-					break execTaskLoop
-				default:
-				}
-
-				buf = make([]byte, bufferSize)
-				n, err = stdout.Read(buf)
-				if err != nil {
-					// EOF
-					stdoutFinished = true
-				} else {
-					if n > 0 {
-						w.OutputChannel <- &WorkerOutput{buf[:n], OutputTypeDebug, task.Host, task.Port, 0}
-						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
-						for i, chunk := range chunks {
-							if i == 0 && shouldSkipEcho {
-								// skip echo \n after password send
-								shouldSkipEcho = false
-								for len(chunk) > 0 && (chunk[0] == 10 || chunk[0] == 13) {
-									chunk = chunk[1:]
-								}
-								if len(chunk) == 0 {
-									continue
-								}
-							}
-
-							if !passwordSent && isPasswdPrompt(chunk) {
-								stdin.Write([]byte(task.RaisePasswd + "\n"))
-								passwordSent = true
-								shouldSkipEcho = true
-								continue
-							} else if passwordSent && isWrongPassword(chunk) {
-								// Stopping process due to wrong passwd
-								cmd.Process.Kill()
-								taskStopped = true
-								continue execTaskLoop
-							} else {
-								if len(chunk) > 0 {
-									w.OutputChannel <- &WorkerOutput{chunk, OutputTypeStdout, task.Host, task.Port, 0}
-								}
-							}
-						}
-					}
-				}
-
-				buf = make([]byte, bufferSize)
-				n, err = stderr.Read(buf)
-				if err != nil {
-					// EOF
-					stderrFinished = true
-				} else {
-					if n > 0 {
-						w.OutputChannel <- &WorkerOutput{buf[:n], OutputTypeDebug, task.Host, task.Port, 0}
-						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
-						for _, chunk := range chunks {
-							if len(chunk) > 0 {
-								if !shouldDropChunk(chunk) {
-									w.OutputChannel <- &WorkerOutput{chunk, OutputTypeStderr, task.Host, task.Port, 0}
-								}
-							}
-						}
-					}
-				}
-
-				if stdoutFinished && stderrFinished {
-					taskStopped = true
-				}
-			}
-
-			exitCode := 0
-			if !taskForceStopped {
-				err = cmd.Wait()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						ws := exitErr.Sys().(syscall.WaitStatus)
-						exitCode = ws.ExitStatus()
-					} else {
-						// MacOS hack
-						exitCode = 32767
-					}
-				}
-			} else {
-				exitCode = 32512
-			}
-			w.OutputChannel <- &WorkerOutput{nil, OutputTypeProcessFinished, task.Host, task.Port, exitCode}
-			w.busy = false
-		case TaskTypeDistribute:
-			cmd := createDistributeCmd(task)
-			cmd.Env = append(os.Environ(), "LC_ALL=en_US.UTF-8")
-
-			stdout, stderr, _, err := MakePipes(cmd)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			cmd.Start()
-			stderrFinished := false
-			stdoutFinished := false
-
-		distTaskLoop:
-			for !taskStopped {
-				select {
-				case <-w.stop:
-					taskStopped = true
-					taskForceStopped = true
-					break distTaskLoop
-				default:
-				}
-
-				buf = make([]byte, bufferSize)
-				n, err = stdout.Read(buf)
-				if err != nil {
-					// EOF
-					stdoutFinished = true
-				} else {
-					w.OutputChannel <- &WorkerOutput{buf[:n], OutputTypeDebug, task.Host, task.Port, 0}
-				}
-
-				buf = make([]byte, bufferSize)
-				n, err = stderr.Read(buf)
-				if err != nil {
-					// EOF
-					stderrFinished = true
-				} else {
-					if n > 0 {
-						chunks := bytes.SplitAfter(buf[:n], []byte("\n"))
-						for _, chunk := range chunks {
-							if len(chunk) > 0 {
-								if !shouldDropChunk(chunk) {
-									w.OutputChannel <- &WorkerOutput{chunk, OutputTypeStderr, task.Host, task.Port, 0}
-								}
-							}
-						}
-					}
-				}
-
-				if stderrFinished && stdoutFinished {
-					taskStopped = true
-				}
-			}
-
-			exitCode := 0
-			if !taskForceStopped {
-				err = cmd.Wait()
-				if err != nil {
-					if exitErr, ok := err.(*exec.ExitError); ok {
-						ws := exitErr.Sys().(syscall.WaitStatus)
-						exitCode = ws.ExitStatus()
-					} else {
-						// MacOS hack
-						exitCode = 32767
-					}
-				}
-			} else {
-				exitCode = 32512
-			}
-			w.OutputChannel <- &WorkerOutput{nil, OutputTypeProcessFinished, task.Host, task.Port, exitCode}
-			w.busy = false
-		}
+func (w *Worker) checkStop() bool {
+	select {
+	case <-w.stop:
+		return true
+	default:
+		return false
 	}
 }
 
-// ForceStop forces worker to stop the current task
+// ForceStop stops the current task execution and returns true
+// if any task were actually executed at the moment of calling ForceStop
 func (w *Worker) ForceStop() bool {
 	if w.busy {
 		w.stop <- true

@@ -51,6 +51,7 @@ type Cli struct {
 	aliases             map[string]*alias
 	remoteTmpDir        string
 	completer           *xcCompleter
+	progressBar         bool
 }
 
 var (
@@ -83,6 +84,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.remoteTmpDir = cfg.RemoteTmpdir
 	cli.delay = cfg.Delay
 	cli.debug = cfg.Debug
+	cli.progressBar = cfg.ProgressBar
 	cli.connectTimeout = fmt.Sprintf("%d", cfg.SSHConnectTimeout)
 
 	cli.curDir, err = os.Getwd()
@@ -93,6 +95,8 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 
 	executer.Initialize(cfg.SSHThreads, cfg.User)
 	executer.SetDebug(cli.debug)
+	executer.SetProgressBar(cli.progressBar)
+	executer.SetRemoteTmpdir(cli.remoteTmpDir)
 
 	cli.doRaise("raise", cfg.RaiseType, cfg.RaiseType)
 	cli.doMode("mode", cfg.Mode, cfg.Mode)
@@ -151,6 +155,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["debug"] = c.doDebug
 	c.handlers["reload"] = c.doReload
 	c.handlers["connect_timeout"] = c.doConnectTimeout
+	c.handlers["progressbar"] = c.doProgressBar
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -575,7 +580,11 @@ func (c *Cli) doDelay(name string, argsLine string, args ...string) {
 
 func (c *Cli) doDebug(name string, argsLine string, args ...string) {
 	if len(args) < 1 {
-		term.Errorf("Usage: debug <on/off>\n")
+		value := "off"
+		if c.debug {
+			value = "on"
+		}
+		term.Warnf("Debug is %s\n", value)
 		return
 	}
 
@@ -589,6 +598,28 @@ func (c *Cli) doDebug(name string, argsLine string, args ...string) {
 		return
 	}
 	executer.SetDebug(c.debug)
+}
+
+func (c *Cli) doProgressBar(name string, argsLine string, args ...string) {
+	if len(args) < 1 {
+		value := "off"
+		if c.progressBar {
+			value = "on"
+		}
+		term.Warnf("Progressbar is %s\n", value)
+		return
+	}
+
+	switch args[0] {
+	case "on":
+		c.progressBar = true
+	case "off":
+		c.progressBar = false
+	default:
+		term.Errorf("Invalid progressbar value. Please use \"on\" or \"off\"\n")
+		return
+	}
+	executer.SetProgressBar(c.progressBar)
 }
 
 func (c *Cli) doReload(name string, argsLine string, args ...string) {

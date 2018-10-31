@@ -2,17 +2,22 @@ package executer
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
+	"path/filepath"
 	"remote"
 	"strings"
 	"term"
 )
 
 var (
-	pool          *remote.Pool
-	currentUser   string
-	currentRaise  remote.RaiseType
-	currentPasswd string
-	currentDebug  bool
+	pool                *remote.Pool
+	currentUser         string
+	currentRaise        remote.RaiseType
+	currentPasswd       string
+	currentDebug        bool
+	currentRemoteTmpdir string
+	currentProgressBar  bool
 )
 
 // ExecResult represents result of execution of a task
@@ -57,6 +62,16 @@ func SetPasswd(passwd string) {
 	currentPasswd = passwd
 }
 
+// SetProgressBar sets current progressbar mode
+func SetProgressBar(pbar bool) {
+	currentProgressBar = pbar
+}
+
+// SetRemoteTmpdir sets current remote temp directory
+func SetRemoteTmpdir(tmpDir string) {
+	currentRemoteTmpdir = tmpDir
+}
+
 func newExecResults() *ExecResult {
 	er := new(ExecResult)
 	er.Codes = make(map[string]int)
@@ -64,6 +79,22 @@ func newExecResults() *ExecResult {
 	er.Error = make([]string, 0)
 	er.OutputMap = make(map[string][]string)
 	return er
+}
+
+func prepareTempFiles(cmd string) (string, string, error) {
+	f, err := ioutil.TempFile("", "xc.")
+	if err != nil {
+		return "", "", err
+	}
+	defer f.Close()
+
+	remoteFilename := filepath.Join(currentRemoteTmpdir, filepath.Base(f.Name()))
+	io.WriteString(f, "#!/bin/bash\n\n")
+	io.WriteString(f, fmt.Sprintf("(sleep 1; rm -f $0) &\n")) // self-destroy
+	io.WriteString(f, cmd+"\n")                               // run command
+	f.Chmod(0755)
+
+	return f.Name(), remoteFilename, nil
 }
 
 // Print prints ExecResults in a nice way
