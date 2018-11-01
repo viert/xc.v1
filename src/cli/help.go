@@ -70,6 +70,73 @@ See "help rcfiles" for further info.`,
 			help:  "Changes working directory",
 		},
 
+		"config": &helpItem{
+			isTopic: true,
+			help: `Configuration file is located in ~/.xc.conf.
+			
+The first time xc starts it creates a default configuration file with all the settings set
+to default values:
+
+[main]
+user = 
+mode = parallel
+history_file = ~/.xc_history
+cache_dir = ~/.xc_cache
+rc_file = ~/.xcrc
+raise = none
+
+[executer]
+ssh_threads = 50
+ssh_connect_timeout = 1
+ping_count = 5
+progress_bar = true
+remote_tmpdir = /tmp
+delay = 0
+
+[inventoree]
+url = http://c.inventoree.ru
+work_groups = 
+
+Configuration is split to 3 sections: main, executer and inventoree.
+
+main.user is the user which will be set on xc startup. If empty, the current system user is used.
+
+main.mode is the execution mode which will be set on xc startup. See "help mode" for more info on execution modes.
+
+main.history_file sets the history file
+
+main.cache_dir sets the cache dir for data derived from inventoree
+
+main.rc_file is the rcfile which will be executed on xc startup. See "help rcfiles" for more info.
+
+main.raise is the raise mode which will be set on xc startup
+
+executer.ssh_threads limits the number of simultaneously running ssh commands.
+
+executer.ssh_connect_timeout sets the default ssh connect timeout. You can change it at any moment using connect_timeout command.
+
+executer.ping_count is not implemented yet and does nothing
+
+executer.progress_bar sets progressbar on or off on xc startup
+
+executer.remote_tmpdir is a temporary directory used on remote servers for various xc needs
+
+executer.delay sets a delay in seconds between hosts when executing in serial mode. See "help delay" for more info
+
+inventoree.url sets the url of the inventoree service
+
+inventoree.work_groups is a comma-separated list of work_groups which will be downloaded from inventoree. 
+	If empty all work groups (i.e. all groups and all hosts as well) are downloaded without filtering which
+    may cause startup delays`,
+		},
+
+		"rcfiles": &helpItem{
+			isTopic: true,
+			help: `Rcfile configured in .xc.conf file is executed every time xc starts.
+It may be useful for configuring aliases (as they are dropped when xc exits) and other options.
+Rcfile is just a number of xc commands in a text file.`,
+		},
+
 		"debug": &helpItem{
 			usage: "<on/off>",
 			help:  `An internal debug. May cause unexpected output. One shouldn't use it unless she knows what she's doing.`,

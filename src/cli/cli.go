@@ -332,6 +332,7 @@ func (c *Cli) doHostlist(name string, argsLine string, args ...string) {
 }
 
 func (c *Cli) doexec(mode execMode, argsLine string) {
+
 	var r *executer.ExecResult
 
 	expr, rest := wsSplit([]rune(argsLine))
@@ -351,6 +352,7 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 		return
 	}
 
+	c.acquirePasswd()
 	cmd := string(rest)
 	executer.SetUser(c.user)
 	executer.SetRaise(c.raiseType)
@@ -432,6 +434,8 @@ func (c *Cli) doSSH(name string, argsLine string, args ...string) {
 		term.Errorf("Usage: ssh <inventoree_expr>\n")
 		return
 	}
+
+	c.acquirePasswd()
 	expr := args[0]
 
 	hosts, err := conductor.HostList([]rune(expr))
@@ -639,4 +643,20 @@ func (c *Cli) doConnectTimeout(name string, argsLine string, args ...string) {
 	}
 	c.connectTimeout = fmt.Sprintf("%d", int(ct))
 	remote.SSHOptions["ConnectTimeout"] = c.connectTimeout
+}
+
+func (c *Cli) acquirePasswd() {
+	switch c.raiseType {
+	case remote.RaiseTypeNone:
+		return
+	case remote.RaiseTypeSu:
+		// TODO GPG passwd acquire
+		if c.raisePasswd == "" {
+			c.doPasswd("passwd", "")
+		}
+	case remote.RaiseTypeSudo:
+		if c.raisePasswd == "" {
+			c.doPasswd("passwd", "")
+		}
+	}
 }
