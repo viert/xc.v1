@@ -3,6 +3,7 @@ package conductor
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/viert/sekwence"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -292,25 +293,33 @@ func HostList(expr []rune) ([]string, error) {
 		switch token.Type {
 		case TTypeHost:
 
-			if len(token.TagsFilter) > 0 {
-				host, found := cGlobal.cache.hosts.fqdn[token.Value]
-				if !found {
-					continue
-				}
-				for _, tag := range token.TagsFilter {
-					if !contains(host.AllTags, tag) {
-						continue
-					}
-				}
+			hosts, err := sekwence.ExpandPattern(token.Value)
+			if err != nil {
+				hosts = []string{token.Value}
 			}
 
-			if token.Exclude {
-				if _, found := hostset[token.Value]; found {
-					delete(hostset, token.Value)
+			for _, host := range hosts {
+				if len(token.TagsFilter) > 0 {
+					invhost, found := cGlobal.cache.hosts.fqdn[host]
+					if !found {
+						continue
+					}
+					for _, tag := range token.TagsFilter {
+						if !contains(invhost.AllTags, tag) {
+							continue
+						}
+					}
 				}
-			} else {
-				hostset[token.Value] = true
+				if token.Exclude {
+					if _, found := hostset[host]; found {
+						delete(hostset, host)
+					}
+				} else {
+					hostset[host] = true
+				}
+
 			}
+
 		case TTypeGroup:
 			if group, found := cGlobal.cache.groups.name[token.Value]; found {
 				hosts := group.AllHosts()

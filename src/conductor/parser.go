@@ -23,6 +23,7 @@ const (
 	StateReadTag
 	StateReadCustomFieldKey
 	StateReadCustomFieldValue
+	StateReadHostBracePattern
 )
 
 type ConductorToken struct {
@@ -130,6 +131,10 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 
 			ct.Value += string(sym)
 		case StateReadHost:
+			if sym == '{' {
+				state = StateReadHostBracePattern
+			}
+
 			if sym == ',' || last {
 				if last {
 					ct.Value += string(sym)
@@ -141,6 +146,15 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 			}
 
 			ct.Value += string(sym)
+		case StateReadHostBracePattern:
+			if sym == '{' {
+				return nil, fmt.Errorf("nested patterns are not allowed (at %d)", i)
+			}
+			if sym == '}' {
+				state = StateReadHost
+			}
+			ct.Value += string(sym)
+
 		case StateReadDatacenter:
 			if sym == ',' || last {
 				if last {
@@ -166,7 +180,7 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 				}
 
 				if tag == "" {
-					return nil, fmt.Errorf("Empty tag at position %d", i)
+					return nil, fmt.Errorf("empty tag at position %d", i)
 				}
 
 				ct.TagsFilter = append(ct.TagsFilter, tag)
