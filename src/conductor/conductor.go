@@ -225,6 +225,15 @@ func (c *Conductor) build() {
 	}
 }
 
+func sliceIndex(s []string, t string) int {
+	for i := 0; i < len(s); i++ {
+		if t == s[i] {
+			return i
+		}
+	}
+	return -1
+}
+
 func CompleteHost(line string) []string {
 	res := make([]string, 0)
 	for hostname := range cGlobal.cache.hosts.fqdn {
@@ -287,7 +296,7 @@ func HostList(expr []rune) ([]string, error) {
 		return nil, err
 	}
 
-	hostset := make(map[string]bool)
+	hostlist := make([]string, 0)
 
 	for _, token := range tokens {
 		switch token.Type {
@@ -311,13 +320,13 @@ func HostList(expr []rune) ([]string, error) {
 					}
 				}
 				if token.Exclude {
-					if _, found := hostset[host]; found {
-						delete(hostset, host)
+					hIdx := sliceIndex(hostlist, host)
+					if hIdx >= 0 {
+						hostlist = append(hostlist[:hIdx], hostlist[hIdx+1:]...)
 					}
 				} else {
-					hostset[host] = true
+					hostlist = append(hostlist, host)
 				}
-
 			}
 
 		case TTypeGroup:
@@ -343,11 +352,12 @@ func HostList(expr []rune) ([]string, error) {
 					}
 
 					if token.Exclude {
-						if _, found := hostset[host.FQDN]; found {
-							delete(hostset, host.FQDN)
+						hIdx := sliceIndex(hostlist, host.FQDN)
+						if hIdx >= 0 {
+							hostlist = append(hostlist[:hIdx], hostlist[hIdx+1:]...)
 						}
 					} else {
-						hostset[host.FQDN] = true
+						hostlist = append(hostlist, host.FQDN)
 					}
 				}
 			}
@@ -378,25 +388,19 @@ func HostList(expr []rune) ([]string, error) {
 					}
 
 					if token.Exclude {
-						if _, found := hostset[host.FQDN]; found {
-							delete(hostset, host.FQDN)
+						hIdx := sliceIndex(hostlist, host.FQDN)
+						if hIdx >= 0 {
+							hostlist = append(hostlist[:hIdx], hostlist[hIdx+1:]...)
 						}
 					} else {
-						hostset[host.FQDN] = true
+						hostlist = append(hostlist, host.FQDN)
 					}
 				}
 			}
 		}
 	}
 
-	res := make([]string, len(hostset))
-	i := 0
-	for fqdn := range hostset {
-		res[i] = fqdn
-		i++
-	}
-
-	return res, nil
+	return hostlist, nil
 }
 
 func contains(array []string, elem string) bool {

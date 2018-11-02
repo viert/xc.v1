@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"remote"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -308,7 +307,6 @@ func (c *Cli) doHostlist(name string, argsLine string, args ...string) {
 		return
 	}
 
-	sort.Strings(hosts)
 	maxlen := 0
 	for _, host := range hosts {
 		if len(host) > maxlen {

@@ -40,6 +40,7 @@ type Worker struct {
 	busy  bool
 }
 
+// expressions
 var (
 	ExprConnectionClosed = regexp.MustCompile(`([Ss]hared\s+)?[Cc]onnection\s+to\s+.+\s+closed\.?`)
 	ExprPasswdPrompt     = regexp.MustCompile(`[Pp]assword`)
