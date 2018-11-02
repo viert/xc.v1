@@ -351,6 +351,12 @@ func HostList(expr []rune) ([]string, error) {
 						}
 					}
 
+					if token.RegexpFilter != nil {
+						if !token.RegexpFilter.Match([]byte(host.FQDN)) {
+							continue
+						}
+					}
+
 					if token.Exclude {
 						hIdx := sliceIndex(hostlist, host.FQDN)
 						if hIdx >= 0 {
@@ -381,9 +387,16 @@ func HostList(expr []rune) ([]string, error) {
 							continue
 						}
 					}
+
 					for _, tag := range token.TagsFilter {
 						if !contains(host.AllTags, tag) {
 							continue hostLoop2
+						}
+					}
+
+					if token.RegexpFilter != nil {
+						if !token.RegexpFilter.Match([]byte(host.FQDN)) {
+							continue
 						}
 					}
 

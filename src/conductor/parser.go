@@ -2,6 +2,7 @@ package conductor
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -21,9 +22,8 @@ const (
 	StateReadWorkGroup
 	StateReadDatacenter
 	StateReadTag
-	StateReadCustomFieldKey
-	StateReadCustomFieldValue
 	StateReadHostBracePattern
+	StateReadRegexp
 )
 
 type ConductorToken struct {
@@ -32,25 +32,29 @@ type ConductorToken struct {
 	DatacenterFilter  string
 	TagsFilter        []string
 	CustomFieldFilter []CustomField
+	RegexpFilter      *regexp.Regexp
 	Exclude           bool
 }
 
 var (
-	hostSymbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+	hostSymbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-{}"
 )
 
 func newToken() *ConductorToken {
 	ct := new(ConductorToken)
 	ct.TagsFilter = make([]string, 0)
 	ct.CustomFieldFilter = make([]CustomField, 0)
+	ct.RegexpFilter = nil
 	return ct
 }
 
+// ParseExpression syntaxically parses the executer dsl
 func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 	ct := newToken()
 	res := make([]*ConductorToken, 0)
 	state := StateWait
 	tag := ""
+	re := ""
 	last := false
 	for i := 0; i < len(expr); i++ {
 		sym := expr[i]
@@ -83,21 +87,9 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 
 			return nil, fmt.Errorf("Invalid symbol %s, expected -, *, %% or a hostname at position %d", string(sym), i)
 		case StateReadGroup:
+
 			if sym == '@' {
 				state = StateReadDatacenter
-				continue
-			}
-
-			if sym == ',' || last {
-				if last {
-					ct.Value += string(sym)
-				}
-				if ct.Value == "" {
-					return nil, fmt.Errorf("Empty group name at position %d", i)
-				}
-				res = append(res, ct)
-				ct = newToken()
-				state = StateWait
 				continue
 			}
 
@@ -107,15 +99,49 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 				continue
 			}
 
+			if sym == '/' {
+				state = StateReadRegexp
+				re = ""
+				continue
+			}
+
+			if sym == ',' || last {
+				if last && sym != ',' {
+					ct.Value += string(sym)
+				}
+
+				if ct.Value == "" {
+					return nil, fmt.Errorf("Empty group name at position %d", i)
+				}
+				res = append(res, ct)
+				ct = newToken()
+				state = StateWait
+				continue
+			}
+
 			ct.Value += string(sym)
+
 		case StateReadWorkGroup:
+
 			if sym == '@' {
 				state = StateReadDatacenter
 				continue
 			}
 
+			if sym == '#' {
+				tag = ""
+				state = StateReadTag
+				continue
+			}
+
+			if sym == '/' {
+				state = StateReadRegexp
+				re = ""
+				continue
+			}
+
 			if sym == ',' || last {
-				if last {
+				if last && sym != ',' {
 					ct.Value += string(sym)
 				}
 				res = append(res, ct)
@@ -124,19 +150,34 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 				continue
 			}
 
-			if sym == '#' {
-				state = StateReadTag
+			ct.Value += string(sym)
+
+		case StateReadRegexp:
+			if sym == '\\' && !last && expr[i+1] == '/' {
+				// screened slash
+				re += "/"
+				i++
 				continue
 			}
 
-			ct.Value += string(sym)
+			if sym == '/' {
+				compiled, err := regexp.Compile(re)
+				if err != nil {
+					return nil, fmt.Errorf("error compiling regexp at %d: %s", i, err)
+				}
+				ct.RegexpFilter = compiled
+				state = StateWait
+				continue
+			}
+			re += string(sym)
+
 		case StateReadHost:
 			if sym == '{' {
 				state = StateReadHostBracePattern
 			}
 
 			if sym == ',' || last {
-				if last {
+				if last && sym != ',' {
 					ct.Value += string(sym)
 				}
 				res = append(res, ct)
@@ -157,7 +198,7 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 
 		case StateReadDatacenter:
 			if sym == ',' || last {
-				if last {
+				if last && sym != ',' {
 					ct.DatacenterFilter += string(sym)
 				}
 				res = append(res, ct)
@@ -167,18 +208,25 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 			}
 
 			if sym == '#' {
+				tag = ""
 				state = StateReadTag
+				continue
+			}
+
+			if sym == '/' {
+				re = ""
+				state = StateReadRegexp
 				continue
 			}
 
 			ct.DatacenterFilter += string(sym)
 
 		case StateReadTag:
+
 			if sym == ',' || last {
-				if last {
+				if last && sym != ',' {
 					tag += string(sym)
 				}
-
 				if tag == "" {
 					return nil, fmt.Errorf("empty tag at position %d", i)
 				}
@@ -203,8 +251,18 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 		}
 
 	}
-	if ct.Value != "" {
+
+	if ct.Value != "" || state == StateReadWorkGroup {
+		// workgroup token can be empty
 		res = append(res, ct)
+	} else {
+		if state != StateWait {
+			return nil, fmt.Errorf("unexpected end of expression")
+		}
+	}
+
+	if state == StateReadDatacenter || state == StateReadTag || state == StateReadHostBracePattern || state == StateReadRegexp {
+		return nil, fmt.Errorf("unexpected end of expression")
 	}
 
 	return res, nil
