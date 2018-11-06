@@ -93,16 +93,15 @@ func (w *Worker) copy(task *Task) int {
 	if taskForceStopped {
 		cmd.Process.Kill()
 		exitCode = ErrForceStop
-	} else {
-		err = cmd.Wait()
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				ws := exitErr.Sys().(syscall.WaitStatus)
-				exitCode = ws.ExitStatus()
-			} else {
-				// MacOS hack
-				exitCode = ErrMacOsExit
-			}
+	}
+	err = cmd.Wait()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			ws := exitErr.Sys().(syscall.WaitStatus)
+			exitCode = ws.ExitStatus()
+		} else {
+			// MacOS hack
+			exitCode = ErrMacOsExit
 		}
 	}
 
