@@ -166,7 +166,16 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 					return nil, fmt.Errorf("error compiling regexp at %d: %s", i, err)
 				}
 				ct.RegexpFilter = compiled
+
+				res = append(res, ct)
+				ct = newToken()
 				state = StateWait
+				// regexp should stop with '/EOL' or with '/,'
+				// however StateWait doesn't expect a comma, so
+				// we skip it:
+				if !last && expr[i+1] == ',' {
+					i++
+				}
 				continue
 			}
 			re += string(sym)
