@@ -51,6 +51,7 @@ type Cli struct {
 	remoteTmpDir        string
 	completer           *xcCompleter
 	progressBar         bool
+	prependHostnames    bool
 }
 
 var (
@@ -84,6 +85,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.delay = cfg.Delay
 	cli.debug = cfg.Debug
 	cli.progressBar = cfg.ProgressBar
+	cli.prependHostnames = cfg.PrependHostnames
 	cli.connectTimeout = fmt.Sprintf("%d", cfg.SSHConnectTimeout)
 
 	cli.curDir, err = os.Getwd()
@@ -96,6 +98,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	executer.SetDebug(cli.debug)
 	executer.SetProgressBar(cli.progressBar)
 	executer.SetRemoteTmpdir(cli.remoteTmpDir)
+	executer.SetPrependHostnames(cli.prependHostnames)
 
 	cli.doRaise("raise", cfg.RaiseType, cfg.RaiseType)
 	cli.doMode("mode", cfg.Mode, cfg.Mode)
@@ -155,6 +158,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["reload"] = c.doReload
 	c.handlers["connect_timeout"] = c.doConnectTimeout
 	c.handlers["progressbar"] = c.doProgressBar
+	c.handlers["prepend_hostnames"] = c.doPrependHostnames
 	c.handlers["help"] = c.doHelp
 
 	commands := make([]string, len(c.handlers))
@@ -623,6 +627,28 @@ func (c *Cli) doProgressBar(name string, argsLine string, args ...string) {
 		return
 	}
 	executer.SetProgressBar(c.progressBar)
+}
+
+func (c *Cli) doPrependHostnames(name string, argsLine string, args ...string) {
+	if len(args) < 1 {
+		value := "off"
+		if c.prependHostnames {
+			value = "on"
+		}
+		term.Warnf("Prepend Hostnames is %s\n", value)
+		return
+	}
+
+	switch args[0] {
+	case "on":
+		c.prependHostnames = true
+	case "off":
+		c.prependHostnames = false
+	default:
+		term.Errorf("Invalid prepend_hostnames value. Please use \"on\" or \"off\"\n")
+		return
+	}
+	executer.SetPrependHostnames(c.prependHostnames)
 }
 
 func (c *Cli) doReload(name string, argsLine string, args ...string) {

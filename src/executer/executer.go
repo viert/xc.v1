@@ -11,13 +11,14 @@ import (
 )
 
 var (
-	pool                *remote.Pool
-	currentUser         string
-	currentRaise        remote.RaiseType
-	currentPasswd       string
-	currentDebug        bool
-	currentRemoteTmpdir string
-	currentProgressBar  bool
+	pool                    *remote.Pool
+	currentUser             string
+	currentRaise            remote.RaiseType
+	currentPasswd           string
+	currentDebug            bool
+	currentRemoteTmpdir     string
+	currentProgressBar      bool
+	currentPrependHostnames bool
 )
 
 // ExecResult represents result of execution of a task
@@ -72,6 +73,11 @@ func SetRemoteTmpdir(tmpDir string) {
 	currentRemoteTmpdir = tmpDir
 }
 
+// SetPrependHostnames sets current prepend_hostnames value for parallel mode
+func SetPrependHostnames(prependHostnames bool) {
+	currentPrependHostnames = prependHostnames
+}
+
 func newExecResults() *ExecResult {
 	er := new(ExecResult)
 	er.Codes = make(map[string]int)
@@ -90,8 +96,8 @@ func prepareTempFiles(cmd string) (string, string, error) {
 
 	remoteFilename := filepath.Join(currentRemoteTmpdir, filepath.Base(f.Name()))
 	io.WriteString(f, "#!/bin/bash\n\n")
-	io.WriteString(f, fmt.Sprintf("(sleep 1; rm -f $0) &\n")) // self-destroy
-	io.WriteString(f, cmd+"\n")                               // run command
+	io.WriteString(f, fmt.Sprintf("nohup bash -c \"sleep 1; rm -f $0\" >/dev/null 2>&1 </dev/null &\n")) // self-destroy
+	io.WriteString(f, cmd+"\n")                                                                          // run command
 	f.Chmod(0755)
 
 	return f.Name(), remoteFilename, nil

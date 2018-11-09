@@ -51,12 +51,18 @@ runLoop:
 				if !bytes.HasSuffix(d.Data, []byte{'\n'}) {
 					d.Data = append(d.Data, '\n')
 				}
-				fmt.Printf("%s: %s", term.Blue(d.Host), string(d.Data))
+				if currentPrependHostnames {
+					fmt.Printf("%s: ", term.Blue(d.Host))
+				}
+				fmt.Printf(string(d.Data))
 			case remote.OutputTypeStderr:
 				if !bytes.HasSuffix(d.Data, []byte{'\n'}) {
 					d.Data = append(d.Data, '\n')
 				}
-				fmt.Printf("%s: %s", term.Red(d.Host), string(d.Data))
+				if currentPrependHostnames {
+					fmt.Printf("%s: ", term.Red(d.Host))
+				}
+				fmt.Printf(string(d.Data))
 			case remote.OutputTypeDebug:
 				if currentDebug {
 					if !bytes.HasSuffix(d.Data, []byte{'\n'}) {

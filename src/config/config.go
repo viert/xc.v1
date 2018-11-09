@@ -26,6 +26,7 @@ type XcConfig struct {
 	RCfile            string
 	Debug             bool
 	ProgressBar       bool
+	PrependHostnames  bool
 }
 
 const (
@@ -42,6 +43,7 @@ ssh_threads = 50
 ssh_connect_timeout = 1
 ping_count = 5
 progress_bar = true
+prepend_hostnames = true
 remote_tmpdir = /tmp
 delay = 0
 
@@ -75,6 +77,7 @@ var (
 	defaultRaiseType         = "none"
 	defaultDebug             = false
 	defaultProgressbar       = true
+	defaultPrependHostnames  = true
 	defaultSSHConnectTimeout = 1
 )
 
@@ -206,6 +209,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		pbar = defaultProgressbar
 	}
 	xc.ProgressBar = pbar
+
+	phn, err := props.GetBool("executer.prepend_hostnames")
+	if err != nil {
+		phn = defaultPrependHostnames
+	}
+	xc.PrependHostnames = phn
 
 	return xc, nil
 }
