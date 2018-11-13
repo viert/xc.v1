@@ -65,6 +65,13 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		cmd = createTTYCmd(host, currentUser, currentRaise, remoteCommand)
 
 		smart := smartpty.Create(cmd)
+
+		// smart.Once(remote.ExprPermissionDenied, func(data []byte, tty *os.File) []byte {
+		// 	term.Errorf(string(data))
+		// 	cmd.Process.Kill()
+		// 	return []byte{}
+		// })
+
 		if currentRaise != remote.RaiseTypeNone {
 			smart.Once(remote.ExprPasswdPrompt, func(data []byte, tty *os.File) []byte {
 				smart.Once(remote.ExprEcho, func(data []byte, tty *os.File) []byte {
@@ -73,7 +80,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 				})
 				tty.Write([]byte(currentPasswd + "\n"))
 				smart.Once(remote.ExprWrongPassword, func(data []byte, tty *os.File) []byte {
-					term.Errorf("%s: sudo: Authentication error\n", host)
+					term.Errorf("%s: sudo: Authentication failure\n", host)
 					cmd.Process.Kill()
 					return []byte{}
 				})
@@ -121,6 +128,8 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 			continue
 		}
 	}
+
+	syscall.SetNonblock(int(os.Stdin.Fd()), false)
 
 	return result
 }
