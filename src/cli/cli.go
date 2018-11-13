@@ -153,6 +153,9 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["alias"] = c.doAlias
 	c.handlers["distribute"] = c.doDistribute
 	c.handlers["runscript"] = c.doRunScript
+	c.handlers["c_runscript"] = c.doCRunScript
+	c.handlers["p_runscript"] = c.doPRunScript
+	c.handlers["s_runscript"] = c.doSRunScript
 	c.handlers["delay"] = c.doDelay
 	c.handlers["debug"] = c.doDebug
 	c.handlers["reload"] = c.doReload
@@ -485,7 +488,7 @@ func (c *Cli) doLocal(name string, argsLine string, args ...string) {
 	cmd.Run()
 }
 
-func (c *Cli) distributeCheck(name string, argsLine string, args ...string) (hosts []string, localFilename string, err error) {
+func (c *Cli) distributeCheck(argsLine string) (hosts []string, localFilename string, err error) {
 	expr, rest := wsSplit([]rune(argsLine))
 
 	if rest == nil {
@@ -519,7 +522,7 @@ func (c *Cli) distributeCheck(name string, argsLine string, args ...string) (hos
 }
 
 func (c *Cli) doDistribute(name string, argsLine string, args ...string) {
-	hosts, localFilename, err := c.distributeCheck(name, argsLine, args...)
+	hosts, localFilename, err := c.distributeCheck(argsLine)
 	if err != nil {
 		if err.Error() == "usage" {
 			term.Errorf("Usage: distribute <inventoree_expr> filename\n")
@@ -531,9 +534,9 @@ func (c *Cli) doDistribute(name string, argsLine string, args ...string) {
 	r.Print()
 }
 
-func (c *Cli) doRunScript(name string, argsLine string, args ...string) {
+func (c *Cli) dorunscript(em execMode, argsLine string) {
 	var r *executer.ExecResult
-	hosts, localFilename, err := c.distributeCheck(name, argsLine, args...)
+	hosts, localFilename, err := c.distributeCheck(argsLine)
 	if err != nil {
 		if err.Error() == "usage" {
 			term.Errorf("Usage: runscript <inventoree_expr> filename\n")
@@ -556,7 +559,7 @@ func (c *Cli) doRunScript(name string, argsLine string, args ...string) {
 
 	cmd := fmt.Sprintf("%s; rm %s", remoteFilename, remoteFilename)
 
-	switch c.mode {
+	switch em {
 	case execModeParallel:
 		r = executer.Parallel(hosts, cmd)
 		defer r.Print()
@@ -567,9 +570,23 @@ func (c *Cli) doRunScript(name string, argsLine string, args ...string) {
 		r = executer.Serial(hosts, cmd, c.delay)
 		defer r.Print()
 	}
-
 	r.Error = append(r.Error, copyError...)
+}
 
+func (c *Cli) doRunScript(name string, argsLine string, args ...string) {
+	c.dorunscript(c.mode, argsLine)
+}
+
+func (c *Cli) doSRunScript(name string, argsLine string, args ...string) {
+	c.dorunscript(execModeSerial, argsLine)
+}
+
+func (c *Cli) doCRunScript(name string, argsLine string, args ...string) {
+	c.dorunscript(execModeCollapse, argsLine)
+}
+
+func (c *Cli) doPRunScript(name string, argsLine string, args ...string) {
+	c.dorunscript(execModeParallel, argsLine)
 }
 
 func (c *Cli) doDelay(name string, argsLine string, args ...string) {

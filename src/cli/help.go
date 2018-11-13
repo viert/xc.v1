@@ -35,12 +35,26 @@ the execution is over. In this mode xc prints the result grouped by the output s
 between hosts become more obvious. Try running "exec %group cat /etc/redhat-release" on a big
 group of hosts in collapse mode to see if they have the same version of OS for example.
 
-While the execution mode can be switched by "mode" command, there's a couple of short-cuts: 
+While the execution mode can be switched by "mode" command, there's a couple of shortcuts: 
     c_exec 
     p_exec
     s_exec 
 which are capable to run exec in collapse, parallel or serial mode correspondingly without switching
 the execution mode`,
+	}
+
+	runScriptHelp = &helpItem{
+		usage: "<host_expression> <scriptname>",
+		help: `Runs a local script on a given list of hosts.
+
+To learn mode about <host_expression> type "help expressions".
+
+runscript simply copies the script to every server in the list and then
+run it according to current execution mode (Type "help exec" to learn more 
+on execution modes), i.e. it can run in parallel or sequentally like exec does.
+
+There are also shortcut aliases c_runscript, s_runscript and p_runscript for calling runscript
+in a particular execution mode without permanent switching to it.`,
 	}
 
 	modeHelp = `Switches execution mode
@@ -257,16 +271,10 @@ If the value is "none", no attempts to raise privileges will be made.`,
 			help:  `Reloads hosts and groups data from inventoree and rewrites the cache`,
 		},
 
-		"runscript": &helpItem{
-			usage: "<host_expression> <scriptname>",
-			help: `Runs a local script on a given list of hosts.
-
-To learn mode about <host_expression> type "help expressions".
-
-runscript simply copies the script to every server in the list and then
-run it according to current execution mode (Type "help exec" to learn more 
-on execution modes), i.e. it can run in parallel or sequentally like exec does.`,
-		},
+		"runscript":   runScriptHelp,
+		"c_runscript": runScriptHelp,
+		"p_runscript": runScriptHelp,
+		"s_runscript": runScriptHelp,
 
 		"ssh": &helpItem{
 			usage: "<host_expression>",
