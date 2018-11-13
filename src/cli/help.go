@@ -233,8 +233,8 @@ aliases like so: alias ping local ping #*. This will create an alias "ping" so y
 			usage: "<on/off>",
 			help: `Sets prepend hostnames mode on or off. When calling without arguments, shows the current value.
 This switches the appearence of hostnames before the output lines in parallel mode. 
-Switching them off is useful for copy-pasting the results.`
-		}
+Switching them off is useful for copy-pasting the results.`,
+		},
 
 		"passwd": &helpItem{
 			usage: "",
