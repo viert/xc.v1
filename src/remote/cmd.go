@@ -37,6 +37,7 @@ func (w *Worker) cmd(task *Task) int {
 	cmd := exec.Command("ssh", params...)
 	cmd.Env = append(os.Environ(), environment...)
 
+	// TODO consider chaging nb-reader to poller
 	stdout, stderr, stdin, err := makeCmdPipes(cmd)
 	taskForceStopped := false
 	stdoutFinished := false
