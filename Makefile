@@ -8,7 +8,11 @@ DEPS = github.com/viert/properties \
 		github.com/svent/go-nbreader \
 		gopkg.in/cheggaaa/pb.v1
 
-ENV = CGO_ENABLED=0 GOPATH=$(CURDIR)
+OSTYPE = $(shell uname -s)
+ENV = GOPATH=$(CURDIR)
+ifeq ($(OSTYPE),Linux)
+	ENV = CGO_ENABLED=0 $(ENV)
+endif
 
 SOURCE = src/xc.go src/cli/*.go src/config/*.go src/conductor/*.go src/executer/*.go \
 			src/remote/*.go src/term/*.go

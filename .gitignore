@@ -3,5 +3,6 @@ gopkg.in
 golang.org
 pkg
 .vscode
+xc
 
 src/testall.go
