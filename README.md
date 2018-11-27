@@ -6,7 +6,7 @@ xc is a fast parallel remote executer written in Go
 
 ```
 export PROJECTDIR=xc
-git clone git@gitlab.corp.mail.ru:mntdev/xc $PROJECTDIR
+git clone git@github.com:viert/xc $PROJECTDIR
 cd $PROJECTDIR
 export GOPATH=$PWD
 go get github.com/viert/properties
