@@ -6,7 +6,6 @@ import (
 	"config"
 	"executer"
 	"fmt"
-	"github.com/chzyer/readline"
 	"io"
 	"os"
 	"os/exec"
@@ -19,6 +18,8 @@ import (
 	"syscall"
 	"term"
 	"time"
+
+	"github.com/chzyer/readline"
 )
 
 type cmdHandler func(string, string, ...string)
@@ -228,7 +229,9 @@ func (c *Cli) CmdLoop() {
 		if err == readline.ErrInterrupt {
 			continue
 		} else if err == io.EOF {
-			c.stopped = true
+			if c.confirm("Are you sure to exit?") {
+				c.stopped = true
+			}
 			continue
 		}
 		c.aliasRecursionCount = maxAliasRecursion
@@ -700,4 +703,29 @@ func (c *Cli) acquirePasswd() {
 			c.doPasswd("passwd", "")
 		}
 	}
+}
+
+func (c *Cli) confirm(msg string) bool {
+	response := "_"
+	reader := bufio.NewReader(os.Stdin)
+	result := true
+	for response != "y" && response != "n" && response != "" {
+		fmt.Print(msg)
+		fmt.Print(" [Y/n] ")
+		response, err := reader.ReadString('\n')
+		if err == nil {
+			if len(response) > 0 {
+				response = strings.ToLower(response)[:len(response)-1]
+			}
+			if response == "" || response == "y" {
+				break
+			}
+			if response == "n" {
+				result = false
+				break
+			}
+		}
+		fmt.Println()
+	}
+	return result
 }
