@@ -2,6 +2,7 @@ github.com
 gopkg.in
 golang.org
 pkg
+bin
 .vscode
 xc
 
