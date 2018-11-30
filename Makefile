@@ -21,7 +21,7 @@ xc: $(SOURCE)
 	env $(ENV) go build $(MAIN)
 
 deps:
-	go get $(DEPS)
+	env $(ENV) go get $(DEPS)
 
 clean:
 	rm xc
