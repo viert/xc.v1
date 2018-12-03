@@ -32,15 +32,23 @@ func Parallel(hosts []string, cmd string) *ExecResult {
 	running := len(hosts)
 	copied := 0
 
-	for _, host := range hosts {
-		// remoteFile should include hostname for the case we have
-		// a number of aliases pointing to one server. With the same
-		// remote filename the first task finished removes the file
-		// while other tasks on the same server try to remove it afterwards and fail
-		remoteFile := fmt.Sprintf("%s.%s.sh", remoteFilePrefix, host)
-		// create tasks for copying temporary self-destroying script and running it
-		pool.CopyAndExec(host, currentUser, localFile, remoteFile, currentRaise, currentPasswd, remoteFile)
-	}
+	go func() {
+		// This is in a goroutine because of decreasing the task channel size.
+		// If there is a number of hosts greater than pool.dataSizeQueue (i.e. 1024)
+		// this loop will actually block on reaching the limit until some tasks are
+		// processed and some space in the queue is released.
+		//
+		// To avoid blocking on task generation this loop was moved into a goroutine
+		for _, host := range hosts {
+			// remoteFile should include hostname for the case we have
+			// a number of aliases pointing to one server. With the same
+			// remote filename the first task finished removes the file
+			// while other tasks on the same server try to remove it afterwards and fail
+			remoteFile := fmt.Sprintf("%s.%s.sh", remoteFilePrefix, host)
+			// create tasks for copying temporary self-destroying script and running it
+			pool.CopyAndExec(host, currentUser, localFile, remoteFile, currentRaise, currentPasswd, remoteFile)
+		}
+	}()
 
 runLoop:
 	for {

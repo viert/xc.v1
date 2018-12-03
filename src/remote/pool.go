@@ -1,5 +1,9 @@
 package remote
 
+const (
+	dataQueueSize = 1024
+)
+
 // Pool is a class representing a worker pool
 type Pool struct {
 	workers []*Worker
@@ -11,8 +15,8 @@ type Pool struct {
 func NewPool(size int) *Pool {
 	p := new(Pool)
 	p.workers = make([]*Worker, size)
-	p.queue = make(chan *Task, 65535)
-	p.Data = make(chan *Output, 65535)
+	p.queue = make(chan *Task, dataQueueSize)
+	p.Data = make(chan *Output, dataQueueSize)
 	for i := 0; i < size; i++ {
 		p.workers[i] = NewWorker(p.queue, p.Data)
 	}

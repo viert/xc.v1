@@ -3,12 +3,13 @@ package executer
 import (
 	"bytes"
 	"fmt"
-	"gopkg.in/cheggaaa/pb.v1"
 	"os"
 	"os/signal"
 	"remote"
 	"syscall"
 	"term"
+
+	"gopkg.in/cheggaaa/pb.v1"
 )
 
 // Collapse runs tasks in parallel collapsing the output
@@ -33,18 +34,22 @@ func Collapse(hosts []string, cmd string) *ExecResult {
 	defer os.Remove(localFile)
 	running := len(hosts)
 	copied := 0
-
-	for _, host := range hosts {
-		// remoteFile should include hostname for the case we have
-		// a number of aliases pointing to one server. With the same
-		// remote filename the first task finished removes the file
-		// while other tasks on the same server try to remove it afterwards and fail
-		remoteFile := fmt.Sprintf("%s.%s.sh", remoteFilePrefix, host)
-		// create tasks for copying temporary self-destroying script and running it
-		pool.CopyAndExec(host, currentUser, localFile, remoteFile, currentRaise, currentPasswd, remoteFile)
-	}
-
 	outputs := make(map[string]string)
+
+	go func() {
+		// this loop is moved to a separate goroutine. refer to parallel.go
+		// for more detail on this (the same loop out there)
+		for _, host := range hosts {
+			// remoteFile should include hostname for the case we have
+			// a number of aliases pointing to one server. With the same
+			// remote filename the first task finished removes the file
+			// while other tasks on the same server try to remove it afterwards and fail
+			remoteFile := fmt.Sprintf("%s.%s.sh", remoteFilePrefix, host)
+			// create tasks for copying temporary self-destroying script and running it
+			pool.CopyAndExec(host, currentUser, localFile, remoteFile, currentRaise, currentPasswd, remoteFile)
+		}
+	}()
+
 	if currentProgressBar {
 		bar = pb.StartNew(running)
 	}
