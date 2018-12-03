@@ -2,7 +2,6 @@ package executer
 
 import (
 	"fmt"
-	"github.com/viert/smartpty"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -10,6 +9,8 @@ import (
 	"syscall"
 	"term"
 	"time"
+
+	"github.com/viert/smartpty"
 )
 
 // Serial runs commands sequentally
@@ -53,6 +54,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 			// copy previously created scriptfile
 			remoteCommand = fmt.Sprintf("%s.%s.sh", remotePrefix, host)
 			cmd = createSCPCmd(host, currentUser, local, remoteCommand)
+			log.Debugf("Created SCP command: %v", cmd)
 			err = cmd.Run()
 			if err != nil {
 				term.Errorf("Error copying tempfile: %s\n", err)
@@ -63,23 +65,23 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		}
 
 		cmd = createTTYCmd(host, currentUser, currentRaise, remoteCommand)
+		log.Debugf("Created TTY command: %v", cmd)
 
 		smart := smartpty.Create(cmd)
-
-		// smart.Once(remote.ExprPermissionDenied, func(data []byte, tty *os.File) []byte {
-		// 	term.Errorf(string(data))
-		// 	cmd.Process.Kill()
-		// 	return []byte{}
-		// })
+		log.Debug("SmartTTY created")
 
 		if currentRaise != remote.RaiseTypeNone {
 			smart.Once(remote.ExprPasswdPrompt, func(data []byte, tty *os.File) []byte {
+				log.Debugf("Got password prompt: %v", string(data))
 				smart.Once(remote.ExprEcho, func(data []byte, tty *os.File) []byte {
 					// remove echo after the password has been sent
+					log.Debugf("Omitting data due to echo skipping: %v", data)
 					return []byte{}
 				})
 				tty.Write([]byte(currentPasswd + "\n"))
+				log.Debug("Password sent")
 				smart.Once(remote.ExprWrongPassword, func(data []byte, tty *os.File) []byte {
+					log.Debugf("Omitting data of 'wrong password' string: %v", string(data))
 					term.Errorf("%s: sudo: Authentication failure\n", host)
 					cmd.Process.Kill()
 					return []byte{}
@@ -89,6 +91,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 			})
 		}
 		smart.Always(remote.ExprConnectionClosed, func(data []byte, tty *os.File) []byte {
+			log.Debugf("Omitting data of 'connection closed' string: %v", string(data))
 			return []byte{}
 		})
 
@@ -103,6 +106,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		exitCode = 0
 		err = cmd.Wait()
 		smart.Close()
+		log.Debug("SmartTTY closed")
 
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -113,6 +117,8 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 				exitCode = remote.ErrMacOsExit
 			}
 		}
+		log.Debugf("Exit code is %d", exitCode)
+
 		result.Codes[host] = exitCode
 		if exitCode == 0 {
 			result.Success = append(result.Success, host)
@@ -123,12 +129,14 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		tick := time.After(time.Duration(delay) * time.Second)
 		select {
 		case <-sigs:
+			log.Debugf("Got TERM signal, stopping task loop")
 			break
 		case <-tick:
 			continue
 		}
 	}
 
+	log.Debugf("Setting stdin back to blocking mode")
 	syscall.SetNonblock(int(os.Stdin.Fd()), false)
 
 	return result

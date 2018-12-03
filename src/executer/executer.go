@@ -8,6 +8,8 @@ import (
 	"remote"
 	"strings"
 	"term"
+
+	"github.com/op/go-logging"
 )
 
 var (
@@ -19,6 +21,7 @@ var (
 	currentRemoteTmpdir     string
 	currentProgressBar      bool
 	currentPrependHostnames bool
+	log                     = logging.MustGetLogger("xc")
 )
 
 // ExecResult represents result of execution of a task
