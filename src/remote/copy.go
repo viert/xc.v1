@@ -20,6 +20,7 @@ func (w *Worker) copy(task *Task) int {
 	params = append(params, task.LocalFilename, remoteExpr)
 	cmd := exec.Command("scp", params...)
 	cmd.Env = append(os.Environ(), environment...)
+	log.Debugf("WRK[%d]: Created command scp %v", w.id, params)
 
 	stdout, stderr, _, err := makeCmdPipes(cmd)
 	taskForceStopped := false
@@ -27,6 +28,7 @@ func (w *Worker) copy(task *Task) int {
 	stderrFinished := false
 
 	cmd.Start()
+	log.Debugf("WRK[%d]: Command started", w.id)
 
 	for {
 		if w.checkStop() {
@@ -43,6 +45,7 @@ func (w *Worker) copy(task *Task) int {
 			if err != nil {
 				// EOF
 				stdoutFinished = true
+				log.Debugf("WRK[%d]: Got EOF on reading stdout from %s", w.id, task.HostName)
 			} else {
 				if n > 0 {
 					newData = true
@@ -60,6 +63,7 @@ func (w *Worker) copy(task *Task) int {
 			if err != nil {
 				// EOF
 				stderrFinished = true
+				log.Debugf("WRK[%d]: Got EOF on reading stderr from %s", w.id, task.HostName)
 			} else {
 				if n > 0 {
 					newData = true
@@ -81,6 +85,7 @@ func (w *Worker) copy(task *Task) int {
 		}
 
 		if stdoutFinished && stderrFinished {
+			log.Debugf("WRK[%d]: Both stdout and stderr on %s have finished, exiting", w.id, task.HostName)
 			break
 		}
 
@@ -93,16 +98,21 @@ func (w *Worker) copy(task *Task) int {
 	if taskForceStopped {
 		cmd.Process.Kill()
 		exitCode = ErrForceStop
+		log.Debugf("WRK[%d]: Task on %s was force stopped", w.id, task.HostName)
 	}
 	err = cmd.Wait()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			ws := exitErr.Sys().(syscall.WaitStatus)
-			exitCode = ws.ExitStatus()
-		} else {
-			// MacOS hack
-			exitCode = ErrMacOsExit
+
+	if !taskForceStopped {
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				ws := exitErr.Sys().(syscall.WaitStatus)
+				exitCode = ws.ExitStatus()
+			} else {
+				// MacOS hack
+				exitCode = ErrMacOsExit
+			}
 		}
+		log.Debugf("WRK[%d]: Task on %s exit code is %d", w.id, task.HostName, exitCode)
 	}
 
 	return exitCode

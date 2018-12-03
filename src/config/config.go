@@ -2,12 +2,13 @@ package config
 
 import (
 	"conductor"
-	"github.com/chzyer/readline"
-	"github.com/viert/properties"
 	"io/ioutil"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/chzyer/readline"
+	"github.com/viert/properties"
 )
 
 // XcConfig represents XC configuration structure
@@ -27,6 +28,7 @@ type XcConfig struct {
 	Debug             bool
 	ProgressBar       bool
 	PrependHostnames  bool
+	LogFile           string
 }
 
 const (
@@ -36,6 +38,7 @@ mode = parallel
 history_file = ~/.xc_history
 cache_dir = ~/.xc_cache
 rc_file = ~/.xcrc
+log_file = 
 raise = none
 
 [executer]
@@ -79,6 +82,7 @@ var (
 	defaultProgressbar       = true
 	defaultPrependHostnames  = true
 	defaultSSHConnectTimeout = 1
+	defaultLogFile           = ""
 )
 
 func expandPath(path string) string {
@@ -127,6 +131,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		rcf = defaultRCfile
 	}
 	xc.RCfile = expandPath(rcf)
+
+	lf, err := props.GetString("main.log_file")
+	if err != nil {
+		lf = defaultLogFile
+	}
+	xc.LogFile = expandPath(lf)
 
 	cttl, err := props.GetInt("main.cache_ttl")
 	if err != nil {

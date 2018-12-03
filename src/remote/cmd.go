@@ -36,6 +36,7 @@ func (w *Worker) cmd(task *Task) int {
 
 	cmd := exec.Command("ssh", params...)
 	cmd.Env = append(os.Environ(), environment...)
+	log.Debugf("WRK[%d]: Created command ssh %v", w.id, params)
 
 	// TODO consider chaging nb-reader to poller
 	stdout, stderr, stdin, err := makeCmdPipes(cmd)
@@ -46,6 +47,7 @@ func (w *Worker) cmd(task *Task) int {
 	chunkCount := 0
 
 	cmd.Start()
+	log.Debugf("WRK[%d]: Command started", w.id)
 
 execLoop:
 	for {
@@ -60,6 +62,7 @@ execLoop:
 			n, err = stdout.Read(buf)
 			if err != nil {
 				// EOF
+				log.Debugf("WRK[%d]: Got EOF on reading stdout from %s", w.id, task.HostName)
 				stdoutFinished = true
 			} else {
 				if n > 0 {
@@ -104,6 +107,7 @@ execLoop:
 			n, err = stderr.Read(buf)
 			if err != nil {
 				// EOF
+				log.Debugf("WRK[%d]: Got EOF on reading stderr from %s", w.id, task.HostName)
 				stderrFinished = true
 			} else {
 				if n > 0 {
@@ -126,6 +130,7 @@ execLoop:
 		}
 
 		if stdoutFinished && stderrFinished {
+			log.Debugf("WRK[%d]: Both stdout and stderr on %s have finished, exiting", w.id, task.HostName)
 			break
 		}
 	}
@@ -135,17 +140,21 @@ execLoop:
 		cmd.Process.Kill()
 		stdin.Close()
 		exitCode = ErrForceStop
+		log.Debugf("WRK[%d]: Task on %s was force stopped", w.id, task.HostName)
 	}
 
 	err = cmd.Wait()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			ws := exitErr.Sys().(syscall.WaitStatus)
-			exitCode = ws.ExitStatus()
-		} else {
-			// MacOS hack
-			exitCode = ErrMacOsExit
+	if !taskForceStopped {
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				ws := exitErr.Sys().(syscall.WaitStatus)
+				exitCode = ws.ExitStatus()
+			} else {
+				// MacOS hack
+				exitCode = ErrMacOsExit
+			}
 		}
+		log.Debugf("WRK[%d]: Task on %s exit code is %d", w.id, task.HostName, exitCode)
 	}
 
 	return exitCode

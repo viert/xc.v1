@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"term"
 	"time"
+	"xclog"
 
 	"github.com/chzyer/readline"
 )
@@ -93,6 +94,10 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	if err != nil {
 		term.Errorf("Error determining current directory: %s\n", err)
 		cli.curDir = "."
+	}
+	err = xclog.Initialize(cfg.LogFile)
+	if err != nil {
+		term.Errorf("Error initializing logger: %s\n", err)
 	}
 
 	executer.Initialize(cfg.SSHThreads, cfg.User)

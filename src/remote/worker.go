@@ -2,10 +2,11 @@ package remote
 
 import (
 	"fmt"
-	"github.com/svent/go-nbreader"
 	"io"
 	"os/exec"
 	"regexp"
+
+	"github.com/svent/go-nbreader"
 )
 
 // OutputType describes a type of output (stdout/stderr)
@@ -30,6 +31,7 @@ type Output struct {
 
 // Worker
 type Worker struct {
+	id    int
 	queue chan *Task
 	data  chan *Output
 	stop  chan bool
@@ -53,11 +55,15 @@ var (
 		"PubkeyAuthentication":   "yes",
 		"StrictHostKeyChecking":  "no",
 	}
+	wrkSequence = 0
 )
 
 const (
 	bufferSize = 4096
+)
 
+// Custom errorcode constants
+const (
 	ErrMacOsExit = 32500 + iota
 	ErrForceStop
 	ErrCopyFailed
@@ -67,12 +73,18 @@ const (
 // NewWorker creates a worker
 func NewWorker(queue chan *Task, data chan *Output) *Worker {
 	w := new(Worker)
+	w.id = wrkSequence
+	wrkSequence++
 	w.queue = queue
 	w.data = data
 	w.stop = make(chan bool)
 	w.busy = false
 	go w.run()
 	return w
+}
+
+func (w *Worker) ID() int {
+	return w.id
 }
 
 // shouldDropChunk checks if a chunk of data needs to be sent
@@ -98,6 +110,7 @@ func (w *Worker) run() {
 
 		// set worker busy flag
 		w.busy = true
+		log.Debugf("WRK[%d]: Got a task for host %s by worker", w.id, task.HostName)
 
 		// does task have anything to copy?
 		if task.RemoteFilename != "" && task.LocalFilename != "" {
