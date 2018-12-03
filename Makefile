@@ -6,7 +6,8 @@ DEPS = github.com/viert/properties \
 		github.com/kr/pty \
 		github.com/npat-efault/poller \
 		github.com/svent/go-nbreader \
-		gopkg.in/cheggaaa/pb.v1
+		gopkg.in/cheggaaa/pb.v1 \
+        github.com/op/go-logging
 
 OSTYPE = $(shell uname -s)
 ENV = GOPATH=$(CURDIR)

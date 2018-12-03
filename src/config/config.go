@@ -52,7 +52,8 @@ delay = 0
 
 [inventoree]
 url = http://c.inventoree.ru
-work_groups = `
+work_groups = 
+`
 )
 
 var (
