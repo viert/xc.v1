@@ -11,9 +11,9 @@ DEPS = github.com/viert/properties \
 
 OSTYPE = $(shell uname -s)
 ENV = GOPATH=$(CURDIR)
-ifeq ($(OSTYPE),Linux)
-	ENV += CGO_ENABLED=0
-endif
+# ifeq ($(OSTYPE),Linux)
+# 	ENV += CGO_ENABLED=0
+# endif
 
 SOURCE = src/xc.go src/cli/*.go src/config/*.go src/conductor/*.go src/executer/*.go \
 			src/remote/*.go src/term/*.go
@@ -22,7 +22,7 @@ xc: $(SOURCE)
 	env $(ENV) go build $(MAIN)
 
 deps:
-	env go get $(DEPS)
+	env $(ENV) go get $(DEPS)
 
 clean:
 	rm xc
