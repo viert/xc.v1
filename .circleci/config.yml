@@ -1,0 +1,16 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: golang:latest
+    working_directory: /tmp/build
+    steps:
+      - checkout
+      - run:
+          name: Getting dependencies
+          command: make deps
+      - run:
+          name: Building XC
+          command: make
+      - store_artifacts:
+          path: /tmp/build/xc
