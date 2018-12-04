@@ -92,7 +92,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		}
 		smart.Always(remote.ExprConnectionClosed, func(data []byte, tty *os.File) []byte {
 			log.Debugf("Omitting data of 'connection closed' string: %v", string(data))
-			return []byte{}
+			return remote.ExprConnectionClosed.ReplaceAll(data, []byte{})
 		})
 
 		err = smart.Start()

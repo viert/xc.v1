@@ -40,7 +40,7 @@ type Worker struct {
 
 // expressions
 var (
-	ExprConnectionClosed = regexp.MustCompile(`([Ss]hared\s+)?[Cc]onnection\s+to\s+.+\s+closed\.?`)
+	ExprConnectionClosed = regexp.MustCompile(`([Ss]hared\s+)?[Cc]onnection\s+to\s+.+\s+closed\.?[\n\r]+`)
 	ExprPasswdPrompt     = regexp.MustCompile(`[Pp]assword`)
 	ExprWrongPassword    = regexp.MustCompile(`[Ss]orry.+try.+again\.?`)
 	ExprPermissionDenied = regexp.MustCompile(`[Pp]ermission\s+denied`)
