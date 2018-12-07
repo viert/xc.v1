@@ -91,8 +91,8 @@ var (
 	defaultPrependHostnames  = true
 	defaultSSHConnectTimeout = 1
 	defaultLogFile           = ""
-	defaultInterpreter       = "bash"
-	defaultSudoInterpreter   = "sudo bash"
+	defaultInterpreter       = "/bin/bash"
+	defaultSudoInterpreter   = "sudo /bin/bash"
 	defaultSuInterpreter     = "su -"
 )
 

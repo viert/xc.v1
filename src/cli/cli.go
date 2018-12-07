@@ -756,6 +756,8 @@ func (c *Cli) setInterpreter(iType string, interpreter string) {
 	case "su":
 		c.suInterpreter = interpreter
 		remote.SetSuInterpreter(interpreter)
+	default:
+		term.Errorf("Invalid raise type: %s\n", iType)
 	}
 	term.Warnf("Using \"%s\" for commands with %s-type raise\n", interpreter, iType)
 }
@@ -767,4 +769,6 @@ func (c *Cli) doInterpreter(name string, argsLine string, args ...string) {
 		term.Warnf("Using \"%s\" for commands with su-type raise\n", c.suInterpreter)
 		return
 	}
+	iType, interpreter := wsSplit([]rune(argsLine))
+	c.setInterpreter(string(iType), string(interpreter))
 }
