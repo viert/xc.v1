@@ -14,29 +14,10 @@ func (w *Worker) cmd(task *Task) int {
 	var n int
 	var passwordSent bool
 
-	params := []string{
-		"-tt",
-		"-l",
-		task.User,
-	}
-	params = append(params, sshOpts()...)
-	params = append(params, task.HostName)
-
-	switch task.Raise {
-	case RaiseTypeNone:
-		params = append(params, "bash", "-c", task.Cmd)
-		passwordSent = true
-	case RaiseTypeSudo:
-		params = append(params, "sudo", "bash", "-c", task.Cmd)
-		passwordSent = false
-	case RaiseTypeSu:
-		params = append(params, "su", "-", "-c", task.Cmd)
-		passwordSent = false
-	}
-
-	cmd := exec.Command("ssh", params...)
+	// in case of RaiseNone no password is to be sent
+	passwordSent = task.Raise == RaiseTypeNone
+	cmd := CreateSSHCmd(task.HostName, task.User, task.Raise, task.Cmd)
 	cmd.Env = append(os.Environ(), environment...)
-	log.Debugf("WRK[%d]: Created command ssh %v", w.id, params)
 
 	// TODO consider chaging nb-reader to poller
 	stdout, stderr, stdin, err := makeCmdPipes(cmd)

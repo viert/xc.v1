@@ -164,6 +164,7 @@ func createTTYCmd(host string, user string, raise remote.RaiseType, argv string)
 		params = append(params, "-o", option)
 	}
 	params = append(params, host)
+
 	if argv == "" {
 		switch raise {
 		case remote.RaiseTypeSu:
@@ -176,7 +177,7 @@ func createTTYCmd(host string, user string, raise remote.RaiseType, argv string)
 		case remote.RaiseTypeSu:
 			params = append(params, "su", "-", "-c")
 		case remote.RaiseTypeSudo:
-			params = append(params, "sudo")
+			params = append(params, "sudo", "bash", "-c")
 		}
 		params = append(params, argv)
 	}
