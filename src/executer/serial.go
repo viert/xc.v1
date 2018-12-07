@@ -53,7 +53,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		if argv != "" {
 			// copy previously created scriptfile
 			remoteCommand = fmt.Sprintf("%s.%s.sh", remotePrefix, host)
-			cmd = createSCPCmd(host, currentUser, local, remoteCommand)
+			cmd = remote.CreateSCPCmd(host, currentUser, local, remoteCommand)
 			log.Debugf("Created SCP command: %v", cmd)
 			err = cmd.Run()
 			if err != nil {
@@ -64,7 +64,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 			}
 		}
 
-		cmd = createTTYCmd(host, currentUser, currentRaise, remoteCommand)
+		cmd = remote.CreateSSHCmd(host, currentUser, currentRaise, remoteCommand)
 		log.Debugf("Created TTY command: %v", cmd)
 
 		smart := smartpty.Create(cmd)
@@ -142,44 +142,44 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 	return result
 }
 
-func createSCPCmd(host string, user string, localFile string, remoteFile string) *exec.Cmd {
-	remoteExpr := fmt.Sprintf("%s@%s:%s", user, host, remoteFile)
-	params := []string{}
-	for opt, value := range remote.SSHOptions {
-		option := fmt.Sprintf("%s=%s", opt, value)
-		params = append(params, "-o", option)
-	}
-	params = append(params, localFile, remoteExpr)
-	return exec.Command("scp", params...)
-}
+// func createSCPCmd(host string, user string, localFile string, remoteFile string) *exec.Cmd {
+// 	remoteExpr := fmt.Sprintf("%s@%s:%s", user, host, remoteFile)
+// 	params := []string{}
+// 	for opt, value := range remote.SSHOptions {
+// 		option := fmt.Sprintf("%s=%s", opt, value)
+// 		params = append(params, "-o", option)
+// 	}
+// 	params = append(params, localFile, remoteExpr)
+// 	return exec.Command("scp", params...)
+// }
 
-func createTTYCmd(host string, user string, raise remote.RaiseType, argv string) *exec.Cmd {
-	params := []string{
-		"-t",
-		"-l",
-		user,
-	}
-	for opt, value := range remote.SSHOptions {
-		option := fmt.Sprintf("%s=%s", opt, value)
-		params = append(params, "-o", option)
-	}
-	params = append(params, host)
+// func createTTYCmd(host string, user string, raise remote.RaiseType, argv string) *exec.Cmd {
+// 	params := []string{
+// 		"-t",
+// 		"-l",
+// 		user,
+// 	}
+// 	for opt, value := range remote.SSHOptions {
+// 		option := fmt.Sprintf("%s=%s", opt, value)
+// 		params = append(params, "-o", option)
+// 	}
+// 	params = append(params, host)
 
-	if argv == "" {
-		switch raise {
-		case remote.RaiseTypeSu:
-			params = append(params, "su", "-")
-		case remote.RaiseTypeSudo:
-			params = append(params, "sudo", "bash")
-		}
-	} else {
-		switch raise {
-		case remote.RaiseTypeSu:
-			params = append(params, "su", "-", "-c")
-		case remote.RaiseTypeSudo:
-			params = append(params, "sudo", "bash", "-c")
-		}
-		params = append(params, argv)
-	}
-	return exec.Command("ssh", params...)
-}
+// 	if argv == "" {
+// 		switch raise {
+// 		case remote.RaiseTypeSu:
+// 			params = append(params, "su", "-")
+// 		case remote.RaiseTypeSudo:
+// 			params = append(params, "sudo", "bash")
+// 		}
+// 	} else {
+// 		switch raise {
+// 		case remote.RaiseTypeSu:
+// 			params = append(params, "su", "-", "-c")
+// 		case remote.RaiseTypeSudo:
+// 			params = append(params, "sudo", "bash", "-c")
+// 		}
+// 		params = append(params, argv)
+// 	}
+// 	return exec.Command("ssh", params...)
+// }
