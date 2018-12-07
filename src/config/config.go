@@ -29,6 +29,10 @@ type XcConfig struct {
 	ProgressBar       bool
 	PrependHostnames  bool
 	LogFile           string
+
+	SudoInterpreter string
+	SuInterpreter   string
+	Interpreter     string
 }
 
 const (
@@ -44,11 +48,14 @@ raise = none
 [executer]
 ssh_threads = 50
 ssh_connect_timeout = 1
-ping_count = 5
 progress_bar = true
 prepend_hostnames = true
 remote_tmpdir = /tmp
 delay = 0
+
+interpreter = bash
+interpreter_sudo = sudo bash
+interpreter_su = su -
 
 [inventoree]
 url = http://c.inventoree.ru
@@ -84,6 +91,9 @@ var (
 	defaultPrependHostnames  = true
 	defaultSSHConnectTimeout = 1
 	defaultLogFile           = ""
+	defaultInterpreter       = "/bin/bash"
+	defaultSudoInterpreter   = "sudo /bin/bash"
+	defaultSuInterpreter     = "su -"
 )
 
 func expandPath(path string) string {
@@ -93,6 +103,7 @@ func expandPath(path string) string {
 	return os.ExpandEnv(path)
 }
 
+// ReadConfig reads the config from a given file and returns a parsed result
 func ReadConfig(filename string) (*XcConfig, error) {
 	return readConfig(filename, false)
 }
@@ -186,6 +197,24 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		pc = defaultPingCount
 	}
 	xc.PingCount = pc
+
+	sdi, err := props.GetString("executer.interpreter_sudo")
+	if err != nil {
+		sdi = defaultSudoInterpreter
+	}
+	xc.SudoInterpreter = sdi
+
+	si, err := props.GetString("executer.interpreter_su")
+	if err != nil {
+		si = defaultSuInterpreter
+	}
+	xc.SuInterpreter = si
+
+	intrpr, err := props.GetString("executer.interpreter")
+	if err != nil {
+		intrpr = defaultInterpreter
+	}
+	xc.Interpreter = intrpr
 
 	invURL, err := props.GetString("inventoree.url")
 	if err == nil {

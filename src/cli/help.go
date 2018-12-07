@@ -276,6 +276,17 @@ If the value is "none", no attempts to raise privileges will be made.`,
 		"p_runscript": runScriptHelp,
 		"s_runscript": runScriptHelp,
 
+		"interpreter": &helpItem{
+			usage: "[raise_type interpreter]",
+			help: `When invoking without arguments, the command shows the current interpreters for each type
+of privileges rasing ("help raise" to learn more on that). You can redefine interpreter
+using this command as in the given examples:
+
+interpreter su su -m
+interpreter sudo sudo /bin/bash
+interpreter none /bin/sh`,
+		},
+
 		"ssh": &helpItem{
 			usage: "<host_expression>",
 			help: `Starts ssh session to hosts one by one, raising the privileges if raise type is not "none" 
@@ -325,6 +336,7 @@ List of commands:
     exit                                   exits the xc
     help                                   shows help on various topics
     hostlist                               resolves a host expression to a list of hosts
+    interpreter							   sets interpreter for each type of privileges raising
     local                                  starts a local command
     mode                                   switches between execution modes
     parallel                               shortcut for "mode parallel"

@@ -2,7 +2,6 @@ package remote
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
@@ -15,12 +14,8 @@ func (w *Worker) copy(task *Task) int {
 	var n int
 	var newData bool
 
-	params := sshOpts()
-	remoteExpr := fmt.Sprintf("%s@%s:%s", task.User, task.HostName, task.RemoteFilename)
-	params = append(params, task.LocalFilename, remoteExpr)
-	cmd := exec.Command("scp", params...)
+	cmd := CreateSCPCmd(task.HostName, task.User, task.LocalFilename, task.RemoteFilename)
 	cmd.Env = append(os.Environ(), environment...)
-	log.Debugf("WRK[%d]: Created command scp %v", w.id, params)
 
 	stdout, stderr, _, err := makeCmdPipes(cmd)
 	taskForceStopped := false
