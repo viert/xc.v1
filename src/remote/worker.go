@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"fmt"
 	"io"
 	"os/exec"
 	"regexp"
@@ -46,16 +45,8 @@ var (
 	ExprPermissionDenied = regexp.MustCompile(`[Pp]ermission\s+denied`)
 	ExprLostConnection   = regexp.MustCompile(`[Ll]ost\sconnection`)
 	ExprEcho             = regexp.MustCompile(`^[\n\r]+$`)
-
-	environment = []string{"LC_ALL=en_US.UTF-8", "LANG=en_US.UTF-8"}
-
-	// SSHOptions defines generic SSH options to use in creating exec.Cmd
-	SSHOptions = map[string]string{
-		"PasswordAuthentication": "no",
-		"PubkeyAuthentication":   "yes",
-		"StrictHostKeyChecking":  "no",
-	}
-	wrkSequence = 0
+	environment          = []string{"LC_ALL=en_US.UTF-8", "LANG=en_US.UTF-8"}
+	wrkSequence          = 0
 )
 
 const (
@@ -132,15 +123,6 @@ func (w *Worker) run() {
 
 		w.busy = false
 	}
-}
-
-func sshOpts() (params []string) {
-	params = make([]string, 0)
-	for opt, value := range SSHOptions {
-		option := fmt.Sprintf("%s=%s", opt, value)
-		params = append(params, "-o", option)
-	}
-	return
 }
 
 func makeCmdPipes(cmd *exec.Cmd) (stdout *nbreader.NBReader, stderr *nbreader.NBReader, stdin io.WriteCloser, err error) {

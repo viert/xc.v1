@@ -5,7 +5,25 @@ import (
 	"os/exec"
 )
 
-// CreateSSHCmd creates a generic scp command
+var (
+	// SSHOptions defines generic SSH options to use in creating exec.Cmd
+	SSHOptions = map[string]string{
+		"PasswordAuthentication": "no",
+		"PubkeyAuthentication":   "yes",
+		"StrictHostKeyChecking":  "no",
+	}
+)
+
+func sshOpts() (params []string) {
+	params = make([]string, 0)
+	for opt, value := range SSHOptions {
+		option := fmt.Sprintf("%s=%s", opt, value)
+		params = append(params, "-o", option)
+	}
+	return
+}
+
+// CreateSCPCmd creates a generic scp command
 func CreateSCPCmd(host string, user string, localFilename string, remoteFilename string) *exec.Cmd {
 	params := sshOpts()
 	remoteExpr := fmt.Sprintf("%s@%s:%s", user, host, remoteFilename)
