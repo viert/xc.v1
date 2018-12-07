@@ -54,6 +54,10 @@ type Cli struct {
 	completer           *xcCompleter
 	progressBar         bool
 	prependHostnames    bool
+
+	interpreter     string
+	sudoInterpreter string
+	suInterpreter   string
 }
 
 var (
@@ -90,11 +94,16 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.prependHostnames = cfg.PrependHostnames
 	cli.connectTimeout = fmt.Sprintf("%d", cfg.SSHConnectTimeout)
 
+	cli.setInterpreter("none", cfg.Interpreter)
+	cli.setInterpreter("sudo", cfg.SudoInterpreter)
+	cli.setInterpreter("su", cfg.SuInterpreter)
+
 	cli.curDir, err = os.Getwd()
 	if err != nil {
 		term.Errorf("Error determining current directory: %s\n", err)
 		cli.curDir = "."
 	}
+
 	err = xclog.Initialize(cfg.LogFile)
 	if err != nil {
 		term.Errorf("Error initializing logger: %s\n", err)
@@ -165,6 +174,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["delay"] = c.doDelay
 	c.handlers["debug"] = c.doDebug
 	c.handlers["reload"] = c.doReload
+	c.handlers["interpreter"] = c.doInterpreter
 	c.handlers["connect_timeout"] = c.doConnectTimeout
 	c.handlers["progressbar"] = c.doProgressBar
 	c.handlers["prepend_hostnames"] = c.doPrependHostnames
@@ -733,4 +743,28 @@ func (c *Cli) confirm(msg string) bool {
 		fmt.Println()
 	}
 	return result
+}
+
+func (c *Cli) setInterpreter(iType string, interpreter string) {
+	switch iType {
+	case "none":
+		c.interpreter = interpreter
+		remote.SetInterpreter(interpreter)
+	case "sudo":
+		c.sudoInterpreter = interpreter
+		remote.SetSudoInterpreter(interpreter)
+	case "su":
+		c.suInterpreter = interpreter
+		remote.SetSuInterpreter(interpreter)
+	}
+	term.Warnf("Using \"%s\" for commands with %s-type raise\n", interpreter, iType)
+}
+
+func (c *Cli) doInterpreter(name string, argsLine string, args ...string) {
+	if len(args) == 0 {
+		term.Warnf("Using \"%s\" for commands with none-type raise\n", c.interpreter)
+		term.Warnf("Using \"%s\" for commands with sudo-type raise\n", c.sudoInterpreter)
+		term.Warnf("Using \"%s\" for commands with su-type raise\n", c.suInterpreter)
+		return
+	}
 }

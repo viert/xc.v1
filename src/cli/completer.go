@@ -22,6 +22,7 @@ func newXcCompleter(commands []string) *xcCompleter {
 	x.completers["progressbar"] = staticCompleter([]string{"on", "off"})
 	x.completers["prepend_hostnames"] = staticCompleter([]string{"on", "off"})
 	x.completers["raise"] = staticCompleter([]string{"none", "su", "sudo"})
+	x.completers["interpreter"] = staticCompleter([]string{"none", "su", "sudo"})
 	x.completers["exec"] = x.completeExec
 	x.completers["s_exec"] = x.completeExec
 	x.completers["c_exec"] = x.completeExec

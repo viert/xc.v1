@@ -3,6 +3,7 @@ package remote
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 var (
@@ -12,6 +13,9 @@ var (
 		"PubkeyAuthentication":   "yes",
 		"StrictHostKeyChecking":  "no",
 	}
+	interpreter     = []string{}
+	sudoInterpreter = []string{}
+	suInterpreter   = []string{}
 )
 
 func sshOpts() (params []string) {
@@ -42,26 +46,33 @@ func CreateSSHCmd(host string, user string, raise RaiseType, argv string) *exec.
 	params = append(params, sshOpts()...)
 	params = append(params, host)
 
-	if argv == "" {
-		switch raise {
-		case RaiseTypeNone:
-			params = append(params, "bash")
-		case RaiseTypeSudo:
-			params = append(params, "sudo", "bash")
-		case RaiseTypeSu:
-			params = append(params, "su", "-")
-		}
-	} else {
-		switch raise {
-		case RaiseTypeNone:
-			params = append(params, "bash", "-c", argv)
-		case RaiseTypeSudo:
-			params = append(params, "sudo", "bash", "-c", argv)
-		case RaiseTypeSu:
-			params = append(params, "su", "-", "-c", argv)
-		}
-		params = append(params, argv)
+	switch raise {
+	case RaiseTypeNone:
+		params = append(params, interpreter...)
+	case RaiseTypeSudo:
+		params = append(params, sudoInterpreter...)
+	case RaiseTypeSu:
+		params = append(params, suInterpreter...)
+	}
+
+	if argv != "" {
+		params = append(params, "-c", argv)
 	}
 	log.Debugf("Created command ssh %v", params)
 	return exec.Command("ssh", params...)
+}
+
+// SetInterpreter sets current sudo interpreter which will be put into every non-raised SSH command
+func SetInterpreter(itrpr string) {
+	interpreter = strings.Split(itrpr, " ")
+}
+
+// SetSuInterpreter sets current sudo interpreter which will be put into every su-raised SSH command
+func SetSuInterpreter(itrpr string) {
+	suInterpreter = strings.Split(itrpr, " ")
+}
+
+// SetSudoInterpreter sets current sudo interpreter which will be put into every sudo-raised SSH command
+func SetSudoInterpreter(itrpr string) {
+	sudoInterpreter = strings.Split(itrpr, " ")
 }
