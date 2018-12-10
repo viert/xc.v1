@@ -34,9 +34,9 @@ func main() {
 
 	if len(os.Args) < 2 {
 		c.CmdLoop()
+	} else {
+		cmd := strings.Join(os.Args[1:], " ")
+		c.OneCmd(cmd)
 	}
-
-	cmd := strings.Join(os.Args[1:], " ")
-	c.OneCmd(cmd)
-
+	c.Finalize()
 }

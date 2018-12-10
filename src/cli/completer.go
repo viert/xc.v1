@@ -29,7 +29,8 @@ func newXcCompleter(commands []string) *xcCompleter {
 	x.completers["p_exec"] = x.completeExec
 	x.completers["ssh"] = x.completeExec
 	x.completers["hostlist"] = x.completeExec
-	x.completers["cd"] = x.completeFiles
+	x.completers["cd"] = completeFiles
+	x.completers["output"] = completeFiles
 	x.completers["distribute"] = x.completeDistribute
 	x.completers["runscript"] = x.completeDistribute
 	x.completers["c_runscript"] = x.completeDistribute
@@ -130,7 +131,7 @@ func (x *xcCompleter) completeCommand(line []rune) (newLine [][]rune, length int
 	return toRunes(sr), len(line)
 }
 
-func (x *xcCompleter) completeFiles(line []rune) (newLine [][]rune, length int) {
+func completeFiles(line []rune) (newLine [][]rune, length int) {
 	ll := len(line)
 	path := string(line)
 	files, err := filepath.Glob(path + "*")
@@ -157,7 +158,7 @@ func (x *xcCompleter) completeDistribute(line []rune) (newLine [][]rune, length 
 	if cmd == nil {
 		return x.completeExec(line)
 	}
-	return x.completeFiles(cmd)
+	return completeFiles(cmd)
 }
 
 func (x *xcCompleter) completeExec(line []rune) (newLine [][]rune, length int) {

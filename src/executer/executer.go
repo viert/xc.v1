@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"remote"
 	"strings"
 	"term"
+	"time"
 
 	"github.com/op/go-logging"
 )
@@ -21,6 +23,7 @@ var (
 	currentRemoteTmpdir     string
 	currentProgressBar      bool
 	currentPrependHostnames bool
+	outputFile              *os.File
 	log                     = logging.MustGetLogger("xc")
 )
 
@@ -49,6 +52,12 @@ func Initialize(numThreads int, user string) {
 // SetDebug sets debug output on/off
 func SetDebug(debug bool) {
 	currentDebug = debug
+}
+
+// SetOutputFile sets output file for every command.
+// if it's nil, no output will be written to files
+func SetOutputFile(f *os.File) {
+	outputFile = f
 }
 
 // SetUser sets current user
@@ -130,4 +139,20 @@ func (r *ExecResult) PrintOutputMap() {
 		fmt.Println(term.Blue(term.HR(tableWidth)))
 		fmt.Println(output)
 	}
+}
+
+// WriteOutput writes output to a user-defined logfile
+// prepending with the current datetime
+func WriteOutput(message string) {
+	if outputFile == nil {
+		return
+	}
+	tm := time.Now().Format("2006-01-02 15:04:05")
+	message = fmt.Sprintf("[%s] %s", tm, message)
+	outputFile.Write([]byte(message))
+}
+
+func writeHostOutput(host string, data []byte) {
+	message := fmt.Sprintf("%s: %s", host, string(data))
+	WriteOutput(message)
 }

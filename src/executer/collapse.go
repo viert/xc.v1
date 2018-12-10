@@ -61,6 +61,17 @@ runLoop:
 			switch d.OType {
 			case remote.OutputTypeStdout:
 				outputs[d.Host] += string(d.Data)
+				logData := make([]byte, len(d.Data))
+				copy(logData, d.Data)
+				if !bytes.HasSuffix(logData, []byte{'\n'}) {
+					logData = append(logData, '\n')
+				}
+				writeHostOutput(d.Host, logData)
+			case remote.OutputTypeStderr:
+				if !bytes.HasSuffix(d.Data, []byte{'\n'}) {
+					d.Data = append(d.Data, '\n')
+				}
+				writeHostOutput(d.Host, d.Data)
 			case remote.OutputTypeDebug:
 				if currentDebug {
 					if !bytes.HasSuffix(d.Data, []byte{'\n'}) {

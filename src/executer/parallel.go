@@ -63,6 +63,7 @@ runLoop:
 					fmt.Printf("%s: ", term.Blue(d.Host))
 				}
 				fmt.Printf(string(d.Data))
+				writeHostOutput(d.Host, d.Data)
 			case remote.OutputTypeStderr:
 				if !bytes.HasSuffix(d.Data, []byte{'\n'}) {
 					d.Data = append(d.Data, '\n')
@@ -71,6 +72,7 @@ runLoop:
 					fmt.Printf("%s: ", term.Red(d.Host))
 				}
 				fmt.Printf(string(d.Data))
+				writeHostOutput(d.Host, d.Data)
 			case remote.OutputTypeDebug:
 				if currentDebug {
 					if !bytes.HasSuffix(d.Data, []byte{'\n'}) {

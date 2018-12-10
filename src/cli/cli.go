@@ -55,6 +55,9 @@ type Cli struct {
 	progressBar         bool
 	prependHostnames    bool
 
+	outputFileName string
+	outputFile     *os.File
+
 	interpreter     string
 	sudoInterpreter string
 	suInterpreter   string
@@ -97,6 +100,9 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.setInterpreter("none", cfg.Interpreter)
 	cli.setInterpreter("sudo", cfg.SudoInterpreter)
 	cli.setInterpreter("su", cfg.SuInterpreter)
+
+	cli.outputFileName = ""
+	cli.outputFile = nil
 
 	cli.curDir, err = os.Getwd()
 	if err != nil {
@@ -179,6 +185,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["progressbar"] = c.doProgressBar
 	c.handlers["prepend_hostnames"] = c.doPrependHostnames
 	c.handlers["help"] = c.doHelp
+	c.handlers["output"] = c.doOutput
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -284,6 +291,14 @@ func (c *Cli) OneCmd(line string) {
 	}
 }
 
+// Finalize closes resources at xc's exit. Must be called explicitly
+func (c *Cli) Finalize() {
+	if c.outputFile != nil {
+		c.outputFile.Close()
+		c.outputFile = nil
+	}
+}
+
 func (c *Cli) doExit(name string, argsLine string, args ...string) {
 	c.stopped = true
 }
@@ -380,6 +395,8 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 	executer.SetUser(c.user)
 	executer.SetRaise(c.raiseType)
 	executer.SetPasswd(c.raisePasswd)
+
+	executer.WriteOutput(fmt.Sprintf("==== exec %s\n", argsLine))
 
 	switch mode {
 	case execModeParallel:
@@ -771,4 +788,47 @@ func (c *Cli) doInterpreter(name string, argsLine string, args ...string) {
 	}
 	iType, interpreter := wsSplit([]rune(argsLine))
 	c.setInterpreter(string(iType), string(interpreter))
+}
+
+func (c *Cli) setOutput(filename string) error {
+	var err error
+	of, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		if c.outputFile != nil {
+			c.outputFile.Close()
+		}
+		c.outputFile = of
+		executer.SetOutputFile(c.outputFile)
+	}
+	return err
+}
+
+func (c *Cli) doOutput(name string, argsLine string, args ...string) {
+	if len(args) == 0 {
+		if c.outputFile == nil {
+			term.Warnf("Output is switched off\n")
+		} else {
+			term.Successf("Output is copied to %s\n", c.outputFileName)
+		}
+		return
+	}
+
+	// A hack to make user able to switch logging off
+	if argsLine == "_" {
+		c.outputFileName = ""
+		if c.outputFile != nil {
+			c.outputFile.Close()
+			c.outputFile = nil
+			executer.SetOutputFile(nil)
+		}
+		return
+	}
+
+	err := c.setOutput(argsLine)
+	if err == nil {
+		c.outputFileName = argsLine
+		term.Successf("Output is copied to %s\n", c.outputFileName)
+	} else {
+		term.Errorf("Error setting output file to %s: %s\n", argsLine, err)
+	}
 }
