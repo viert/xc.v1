@@ -287,6 +287,14 @@ interpreter sudo sudo /bin/bash
 interpreter none /bin/sh`,
 		},
 
+		"output": &helpItem{
+			usage: "[filename]",
+			help: `Copies the entire output of parallel(!) exec commands to a given logfile. To switch 
+the logging off, type "output _". When invoked without arguments, output command prints
+the current output filename (or a message saying that the output logging is switched off) 
+and exits.`,
+		},
+
 		"ssh": &helpItem{
 			usage: "<host_expression>",
 			help: `Starts ssh session to hosts one by one, raising the privileges if raise type is not "none" 

@@ -821,6 +821,7 @@ func (c *Cli) doOutput(name string, argsLine string, args ...string) {
 			c.outputFile = nil
 			executer.SetOutputFile(nil)
 		}
+		term.Warnf("Output is switched off\n")
 		return
 	}
 
