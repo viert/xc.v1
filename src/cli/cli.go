@@ -405,6 +405,7 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 	case execModeCollapse:
 		r = executer.Collapse(hosts, cmd)
 		r.PrintOutputMap()
+		r.Print()
 	case execModeSerial:
 		r = executer.Serial(hosts, cmd, c.delay)
 		r.Print()

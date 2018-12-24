@@ -128,7 +128,7 @@ func (r *ExecResult) Print() {
 // PrintOutputMap prints collapsed-style output
 func (r *ExecResult) PrintOutputMap() {
 	for output, hosts := range r.OutputMap {
-		msg := fmt.Sprintf(" %s    ", strings.Join(hosts, ","))
+		msg := fmt.Sprintf(" %d host(s): %s   ", len(hosts), strings.Join(hosts, ","))
 		tableWidth := len(msg) + 2
 		termWidth := term.GetTerminalWidth()
 		if tableWidth > termWidth {
