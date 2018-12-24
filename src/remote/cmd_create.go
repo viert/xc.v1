@@ -12,6 +12,9 @@ var (
 		"PasswordAuthentication": "no",
 		"PubkeyAuthentication":   "yes",
 		"StrictHostKeyChecking":  "no",
+		"TCPKeepAlive":           "yes",
+		"ServerAliveCountMax":    "12",
+		"ServerAliveInterval":    "5",
 	}
 	interpreter     = []string{}
 	sudoInterpreter = []string{}

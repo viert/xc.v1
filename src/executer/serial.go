@@ -22,9 +22,20 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		local        string
 		remotePrefix string
 	)
+
+	defer func() {
+		log.Debug("Setting stdin back to blocking mode")
+		syscall.SetNonblock(int(os.Stdin.Fd()), false)
+	}()
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT)
-	defer signal.Reset()
+	log.Debug("Setting SIGINT catcher")
+
+	defer func() {
+		log.Debug("Removing SIGINT catcher")
+		defer signal.Reset()
+	}()
 
 	result := newExecResults()
 	if len(hosts) == 0 {
@@ -135,9 +146,6 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 			continue
 		}
 	}
-
-	log.Debugf("Setting stdin back to blocking mode")
-	syscall.SetNonblock(int(os.Stdin.Fd()), false)
 
 	return result
 }
