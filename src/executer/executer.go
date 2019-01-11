@@ -43,10 +43,15 @@ type ExecResult struct {
 
 // Initialize initializes executer pool and configuration
 func Initialize(numThreads int, user string) {
-	pool = remote.NewPool(numThreads)
+	SetNumThreads(numThreads)
 	currentUser = user
 	currentRaise = remote.RaiseTypeNone
 	currentPasswd = ""
+}
+
+// SetNumThreads recreates pool with a given number of threads
+func SetNumThreads(numThreads int) {
+	pool = remote.NewPool(numThreads)
 }
 
 // SetDebug sets debug output on/off

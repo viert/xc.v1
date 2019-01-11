@@ -302,6 +302,12 @@ and exits.`,
 xc moves on to the next server.`,
 		},
 
+		"threads": &helpItem{
+			usage: "[num_threads]",
+			help: `Sets max number of simultaneously running ssh threads to <num_threads>. When called
+without arguments, prints the current value.`,
+		},
+
 		"user": &helpItem{
 			usage: "<username>",
 			help:  `Sets the username for all the execution commands. This is used to get access to hosts via ssh/scp.`,

@@ -33,6 +33,7 @@ const (
 	execModeCollapse
 
 	maxAliasRecursion = 10
+	maxSSHThreadsSane = 1024
 )
 
 // Cli represents a commandline interface class
@@ -54,6 +55,7 @@ type Cli struct {
 	completer           *xcCompleter
 	progressBar         bool
 	prependHostnames    bool
+	sshThreads          int
 
 	outputFileName string
 	outputFile     *os.File
@@ -96,6 +98,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.progressBar = cfg.ProgressBar
 	cli.prependHostnames = cfg.PrependHostnames
 	cli.connectTimeout = fmt.Sprintf("%d", cfg.SSHConnectTimeout)
+	cli.sshThreads = cfg.SSHThreads
 
 	cli.setInterpreter("none", cfg.Interpreter)
 	cli.setInterpreter("sudo", cfg.SudoInterpreter)
@@ -186,6 +189,7 @@ func (c *Cli) setupCmdHandlers() {
 	c.handlers["prepend_hostnames"] = c.doPrependHostnames
 	c.handlers["help"] = c.doHelp
 	c.handlers["output"] = c.doOutput
+	c.handlers["threads"] = c.doThreads
 
 	commands := make([]string, len(c.handlers))
 	i := 0
@@ -802,6 +806,34 @@ func (c *Cli) setOutput(filename string) error {
 		executer.SetOutputFile(c.outputFile)
 	}
 	return err
+}
+
+func (c *Cli) doThreads(name string, argsLine string, args ...string) {
+	if len(args) == 0 {
+		term.Successf("Max SSH threads: %d\n", c.sshThreads)
+		return
+	}
+
+	threads, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		term.Errorf("Error setting max SSH threads value: %s\n", err)
+		return
+	}
+
+	if threads < 1 {
+		term.Errorf("Max SSH threads can't be lower than 1\n")
+		return
+	}
+
+	if threads > maxSSHThreadsSane {
+		term.Errorf("Max SSH threads can't be higher than %d\n", maxSSHThreadsSane)
+		return
+	}
+
+	c.sshThreads = int(threads)
+	term.Successf("Max SSH threads set to %d\n", c.sshThreads)
+	executer.SetNumThreads(c.sshThreads)
+	term.Successf("Execution pool re-created\n")
 }
 
 func (c *Cli) doOutput(name string, argsLine string, args ...string) {
