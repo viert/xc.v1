@@ -62,7 +62,7 @@ execLoop:
 								continue
 							}
 							if shouldSkipEcho && ExprEcho.Match(chunk) {
-								shouldSkipEcho = true
+								shouldSkipEcho = false
 								continue
 							}
 							if passwordSent && ExprWrongPassword.Match(chunk) {
