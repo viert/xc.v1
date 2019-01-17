@@ -75,10 +75,7 @@ runLoop:
 				writeHostOutput(d.Host, d.Data)
 			case remote.OutputTypeDebug:
 				if currentDebug {
-					if !bytes.HasSuffix(d.Data, []byte{'\n'}) {
-						d.Data = append(d.Data, '\n')
-					}
-					fmt.Printf("%s: %s", term.Yellow(d.Host), string(d.Data))
+					log.Debugf("DATASTREAM @ %s\n%v\n[%v]", d.Host, d.Data, string(d.Data))
 				}
 			case remote.OutputTypeCopyFinished:
 				if d.StatusCode == 0 {
