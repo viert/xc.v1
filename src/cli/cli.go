@@ -371,6 +371,7 @@ func (c *Cli) doHostlist(name string, argsLine string, args ...string) {
 	for _, host := range hosts {
 		fmt.Println(host)
 	}
+	term.Successf("Total: %d hosts\n", len(hosts))
 }
 
 func (c *Cli) doexec(mode execMode, argsLine string) {

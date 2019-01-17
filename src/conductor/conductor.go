@@ -369,11 +369,25 @@ func HostList(expr []rune) ([]string, error) {
 			}
 
 		case TTypeWorkGroup:
-			if wg, found := cGlobal.cache.workgroups.name[token.Value]; found {
-				groups := wg.Groups
+			workgroups := make([]*WorkGroup, 0)
+			if token.Value == "" {
+				for _, wg := range cGlobal.cache.workgroups.name {
+					workgroups = append(workgroups, wg)
+				}
+			} else {
+				wg, found := cGlobal.cache.workgroups.name[token.Value]
+				if found {
+					workgroups = []*WorkGroup{wg}
+				}
+			}
+
+			if len(workgroups) > 0 {
 				hosts := make([]*Host, 0)
-				for _, group := range groups {
-					hosts = append(hosts, group.Hosts...)
+				for _, wg := range workgroups {
+					groups := wg.Groups
+					for _, group := range groups {
+						hosts = append(hosts, group.Hosts...)
+					}
 				}
 
 			hostLoop2:
