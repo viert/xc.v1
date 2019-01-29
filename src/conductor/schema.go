@@ -4,11 +4,6 @@ import (
 	"time"
 )
 
-type CustomField struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
 type Datacenter struct {
 	ID          string   `json:"_id"`
 	ChildIds    []string `json:"child_ids"`
@@ -20,26 +15,24 @@ type Datacenter struct {
 }
 
 type Group struct {
-	ID              string        `json:"_id"`
-	ChildIds        []string      `json:"child_ids"`
-	ParentIds       []string      `json:"parent_ids"`
-	AllTags         []string      `json:"all_tags"`
-	AllCustomFields []CustomField `json:"all_custom_fields"`
-	Description     string        `json:"description"`
-	Name            string        `json:"name"`
-	WorkGroupID     string        `json:"work_group_id"`
-	Hosts           []*Host
+	ID          string   `json:"_id"`
+	ChildIds    []string `json:"child_ids"`
+	ParentIds   []string `json:"parent_ids"`
+	AllTags     []string `json:"all_tags"`
+	Description string   `json:"description"`
+	Name        string   `json:"name"`
+	WorkGroupID string   `json:"work_group_id"`
+	Hosts       []*Host
 }
 
 type Host struct {
-	ID              string        `json:"_id"`
-	Aliases         []string      `json:"aliases"`
-	AllTags         []string      `json:"all_tags"`
-	AllCustomFields []CustomField `json:"all_custom_fields"`
-	FQDN            string        `json:"fqdn"`
-	GroupID         string        `json:"group_id"`
-	DatacenterID    string        `json:"datacenter_id"`
-	Datacenter      *Datacenter
+	ID           string   `json:"_id"`
+	Aliases      []string `json:"aliases"`
+	AllTags      []string `json:"all_tags"`
+	FQDN         string   `json:"fqdn"`
+	GroupID      string   `json:"group_id"`
+	DatacenterID string   `json:"datacenter_id"`
+	Datacenter   *Datacenter
 }
 
 type WorkGroup struct {

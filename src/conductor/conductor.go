@@ -3,7 +3,6 @@ package conductor
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/viert/sekwence"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"term"
 	"time"
+
+	"github.com/viert/sekwence"
 )
 
 // ConductorConfig represents configuration for ConductorClass

@@ -27,13 +27,12 @@ const (
 )
 
 type ConductorToken struct {
-	Type              TokenType
-	Value             string
-	DatacenterFilter  string
-	TagsFilter        []string
-	CustomFieldFilter []CustomField
-	RegexpFilter      *regexp.Regexp
-	Exclude           bool
+	Type             TokenType
+	Value            string
+	DatacenterFilter string
+	TagsFilter       []string
+	RegexpFilter     *regexp.Regexp
+	Exclude          bool
 }
 
 var (
@@ -43,7 +42,6 @@ var (
 func newToken() *ConductorToken {
 	ct := new(ConductorToken)
 	ct.TagsFilter = make([]string, 0)
-	ct.CustomFieldFilter = make([]CustomField, 0)
 	ct.RegexpFilter = nil
 	return ct
 }
