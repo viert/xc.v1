@@ -29,7 +29,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 	}()
 
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT)
+	signal.Notify(sigs, os.Interrupt)
 	log.Debug("Setting SIGINT catcher")
 
 	defer func() {
@@ -118,6 +118,8 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		err = cmd.Wait()
 		smart.Close()
 		log.Debug("SmartTTY closed")
+		signal.Notify(sigs, os.Interrupt)
+		log.Debug("Signal catcher restored")
 
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -138,6 +140,7 @@ func Serial(hosts []string, argv string, delay int) *ExecResult {
 		}
 
 		tick := time.After(time.Duration(delay) * time.Second)
+
 		select {
 		case <-sigs:
 			log.Debugf("Got TERM signal, stopping task loop")
