@@ -68,7 +68,7 @@ func NewWorker(queue chan *Task, data chan *Output) *Worker {
 	wrkSequence++
 	w.queue = queue
 	w.data = data
-	w.stop = make(chan bool)
+	w.stop = make(chan bool, 1)
 	w.busy = false
 	go w.run()
 	return w
