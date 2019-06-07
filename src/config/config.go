@@ -29,6 +29,7 @@ type XcConfig struct {
 	ProgressBar       bool
 	PrependHostnames  bool
 	LogFile           string
+	ExitConfirm       bool
 
 	SudoInterpreter string
 	SuInterpreter   string
@@ -44,6 +45,7 @@ cache_dir = ~/.xc_cache
 rc_file = ~/.xcrc
 log_file = 
 raise = none
+exit_confirm = true
 
 [executer]
 ssh_threads = 50
@@ -91,6 +93,7 @@ var (
 	defaultPrependHostnames  = true
 	defaultSSHConnectTimeout = 1
 	defaultLogFile           = ""
+	defaultExitConfirm       = true
 	defaultInterpreter       = "/bin/bash"
 	defaultSudoInterpreter   = "sudo /bin/bash"
 	defaultSuInterpreter     = "su -"
@@ -243,6 +246,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		dbg = defaultDebug
 	}
 	xc.Debug = dbg
+
+	exitcnfrm, err := props.GetBool("main.exit_confirm")
+	if err != nil {
+		exitcnfrm = defaultExitConfirm
+	}
+	xc.ExitConfirm = exitcnfrm
 
 	pbar, err := props.GetBool("executer.progress_bar")
 	if err != nil {

@@ -56,6 +56,7 @@ type Cli struct {
 	progressBar         bool
 	prependHostnames    bool
 	sshThreads          int
+	exitConfirm         bool
 
 	outputFileName string
 	outputFile     *os.File
@@ -99,6 +100,7 @@ func NewCli(cfg *config.XcConfig) (*Cli, error) {
 	cli.prependHostnames = cfg.PrependHostnames
 	cli.connectTimeout = fmt.Sprintf("%d", cfg.SSHConnectTimeout)
 	cli.sshThreads = cfg.SSHThreads
+	cli.exitConfirm = cfg.ExitConfirm
 
 	cli.setInterpreter("none", cfg.Interpreter)
 	cli.setInterpreter("sudo", cfg.SudoInterpreter)
@@ -255,7 +257,7 @@ func (c *Cli) CmdLoop() {
 		if err == readline.ErrInterrupt {
 			continue
 		} else if err == io.EOF {
-			if c.confirm("Are you sure to exit?") {
+			if !c.exitConfirm || c.confirm("Are you sure to exit?") {
 				c.stopped = true
 			}
 			continue
