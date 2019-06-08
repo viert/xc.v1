@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"parser"
 	"path"
 	"regexp"
 	"sort"
@@ -226,16 +227,7 @@ func (c *Conductor) build() {
 	}
 }
 
-func sliceIndex(s []string, t string) int {
-	for i := 0; i < len(s); i++ {
-		if t == s[i] {
-			return i
-		}
-	}
-	return -1
-}
-
-func CompleteHost(line string) []string {
+func (c *Conductor) CompleteHost(line string) []string {
 	res := make([]string, 0)
 	for hostname := range cGlobal.cache.hosts.fqdn {
 		if line == "" || strings.HasPrefix(hostname, line) {
@@ -246,7 +238,7 @@ func CompleteHost(line string) []string {
 	return res
 }
 
-func CompleteGroup(line string) []string {
+func (c *Conductor) CompleteGroup(line string) []string {
 	expr := line
 	if strings.HasPrefix(expr, "%") {
 		expr = expr[1:]
@@ -261,7 +253,7 @@ func CompleteGroup(line string) []string {
 	return res
 }
 
-func CompleteWorkGroup(line string) []string {
+func (c *Conductor) CompleteWorkGroup(line string) []string {
 	expr := line
 	if strings.HasPrefix(expr, "*") {
 		expr = expr[1:]
@@ -276,7 +268,7 @@ func CompleteWorkGroup(line string) []string {
 	return res
 }
 
-func CompleteDatacenter(line string) []string {
+func (c *Conductor) CompleteDatacenter(line string) []string {
 	expr := line
 	if strings.HasPrefix(expr, "@") {
 		expr = expr[1:]
@@ -291,8 +283,8 @@ func CompleteDatacenter(line string) []string {
 	return res
 }
 
-func HostList(expr []rune) ([]string, error) {
-	tokens, err := ParseExpression(expr)
+func (c *Conductor) HostList(expr []rune) ([]string, error) {
+	tokens, err := parser.ParseExpression(expr)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +293,7 @@ func HostList(expr []rune) ([]string, error) {
 
 	for _, token := range tokens {
 		switch token.Type {
-		case TTypeHost:
+		case parser.TTypeHost:
 
 			hosts, err := sekwence.ExpandPattern(token.Value)
 			if err != nil {
@@ -320,17 +312,10 @@ func HostList(expr []rune) ([]string, error) {
 						}
 					}
 				}
-				if token.Exclude {
-					hIdx := sliceIndex(hostlist, host)
-					if hIdx >= 0 {
-						hostlist = append(hostlist[:hIdx], hostlist[hIdx+1:]...)
-					}
-				} else {
-					hostlist = append(hostlist, host)
-				}
+				parser.MaybeAddHost(&hostlist, host, token.Exclude)
 			}
 
-		case TTypeGroup:
+		case parser.TTypeGroup:
 			if group, found := cGlobal.cache.groups.name[token.Value]; found {
 				hosts := group.AllHosts()
 
@@ -357,19 +342,11 @@ func HostList(expr []rune) ([]string, error) {
 							continue
 						}
 					}
-
-					if token.Exclude {
-						hIdx := sliceIndex(hostlist, host.FQDN)
-						if hIdx >= 0 {
-							hostlist = append(hostlist[:hIdx], hostlist[hIdx+1:]...)
-						}
-					} else {
-						hostlist = append(hostlist, host.FQDN)
-					}
+					parser.MaybeAddHost(&hostlist, host.FQDN, token.Exclude)
 				}
 			}
 
-		case TTypeWorkGroup:
+		case parser.TTypeWorkGroup:
 			workgroups := make([]*WorkGroup, 0)
 			if token.Value == "" {
 				for _, wg := range cGlobal.cache.workgroups.name {
@@ -415,19 +392,11 @@ func HostList(expr []rune) ([]string, error) {
 						}
 					}
 
-					if token.Exclude {
-						hIdx := sliceIndex(hostlist, host.FQDN)
-						if hIdx >= 0 {
-							hostlist = append(hostlist[:hIdx], hostlist[hIdx+1:]...)
-						}
-					} else {
-						hostlist = append(hostlist, host.FQDN)
-					}
+					parser.MaybeAddHost(&hostlist, host.FQDN, token.Exclude)
 				}
 			}
 		}
 	}
-
 	return hostlist, nil
 }
 
@@ -441,7 +410,7 @@ func contains(array []string, elem string) bool {
 }
 
 // Reload tries to load groups from inventoree only
-func Reload() error {
+func (c *Conductor) Reload() error {
 	if cGlobal == nil {
 		return fmt.Errorf("conductor object is not initialized")
 	}

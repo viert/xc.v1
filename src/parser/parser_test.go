@@ -1,4 +1,4 @@
-package conductor
+package parser
 
 import (
 	"testing"

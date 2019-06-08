@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"conductor"
+	"backend"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,10 +13,11 @@ type completeFunc func([]rune) ([][]rune, int)
 type xcCompleter struct {
 	commands   []string
 	completers map[string]completeFunc
+	backend    backend.Backend
 }
 
-func newXcCompleter(commands []string) *xcCompleter {
-	x := &xcCompleter{commands, make(map[string]completeFunc)}
+func newXcCompleter(backend backend.Backend, commands []string) *xcCompleter {
+	x := &xcCompleter{commands, make(map[string]completeFunc), backend}
 	x.completers["mode"] = staticCompleter([]string{"collapse", "serial", "parallel"})
 	x.completers["debug"] = staticCompleter([]string{"on", "off"})
 	x.completers["progressbar"] = staticCompleter([]string{"on", "off"})
@@ -195,7 +196,7 @@ func (x *xcCompleter) completeGroup(line []rune) (newLine [][]rune, length int) 
 	if ai >= 0 {
 		return x.completeDatacenter(line[ai:])
 	}
-	groups := conductor.CompleteGroup(string(line))
+	groups := x.backend.CompleteGroup(string(line))
 	return toRunes(groups), len(line)
 }
 
@@ -204,16 +205,16 @@ func (x *xcCompleter) completeWorkGroup(line []rune) (newLine [][]rune, length i
 	if ai >= 0 {
 		return x.completeDatacenter(line[ai:])
 	}
-	wgroups := conductor.CompleteWorkGroup(string(line))
+	wgroups := x.backend.CompleteHost(string(line))
 	return toRunes(wgroups), len(line)
 }
 
 func (x *xcCompleter) completeHost(line []rune) (newLine [][]rune, length int) {
-	hosts := conductor.CompleteHost(string(line))
+	hosts := x.backend.CompleteHost(string(line))
 	return toRunes(hosts), len(line)
 }
 
 func (x *xcCompleter) completeDatacenter(line []rune) (newLine [][]rune, length int) {
-	dcs := conductor.CompleteDatacenter(string(line))
+	dcs := x.backend.CompleteDatacenter(string(line))
 	return toRunes(dcs), len(line)
 }
