@@ -484,7 +484,7 @@ func (c *Cli) doSSH(name string, argsLine string, args ...string) {
 	}
 
 	c.acquirePasswd()
-	expr := args[0]
+	expr, rest := wsSplit([]rune(argsLine))
 
 	hosts, err := conductor.HostList([]rune(expr))
 	if err != nil {
@@ -500,7 +500,12 @@ func (c *Cli) doSSH(name string, argsLine string, args ...string) {
 	executer.SetUser(c.user)
 	executer.SetPasswd(c.raisePasswd)
 	executer.SetRaise(c.raiseType)
-	executer.Serial(hosts, "", 0)
+	cmd := string(rest)
+	if len(cmd) > 0 {
+		executer.Serial(hosts, cmd, 0)
+	} else {
+		executer.Serial(hosts, "", 0)
+	}
 }
 
 func (c *Cli) doCD(name string, argsLine string, args ...string) {
