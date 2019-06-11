@@ -30,6 +30,8 @@ type XcConfig struct {
 	PrependHostnames  bool
 	LogFile           string
 	ExitConfirm       bool
+	BackendType       string
+	LocalFile         string
 
 	SudoInterpreter string
 	SuInterpreter   string
@@ -46,6 +48,8 @@ rc_file = ~/.xcrc
 log_file = 
 raise = none
 exit_confirm = true
+backend_type = conductor
+local_file = ~/.xc_hosts
 
 [executer]
 ssh_threads = 50
@@ -94,6 +98,8 @@ var (
 	defaultSSHConnectTimeout = 1
 	defaultLogFile           = ""
 	defaultExitConfirm       = true
+	defaultBackendType       = "conductor"
+	defaultLocalFile         = "~/.xc_hosts"
 	defaultInterpreter       = "/bin/bash"
 	defaultSudoInterpreter   = "sudo /bin/bash"
 	defaultSuInterpreter     = "su -"
@@ -252,6 +258,18 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		exitcnfrm = defaultExitConfirm
 	}
 	xc.ExitConfirm = exitcnfrm
+
+	bknd, err := props.GetString("main.backend_type")
+	if err != nil {
+		bknd = defaultBackendType
+	}
+	xc.BackendType = bknd
+
+	lfile, err := props.GetString("main.local_file")
+	if err != nil {
+		lfile = defaultLocalFile
+	}
+	xc.LocalFile = expandPath(lfile)
 
 	pbar, err := props.GetBool("executer.progress_bar")
 	if err != nil {

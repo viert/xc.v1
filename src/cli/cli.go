@@ -1,8 +1,8 @@
 package cli
 
 import (
+	"backend"
 	"bufio"
-	"conductor"
 	"config"
 	"executer"
 	"fmt"
@@ -64,6 +64,8 @@ type Cli struct {
 	interpreter     string
 	sudoInterpreter string
 	suInterpreter   string
+
+	backend backend.Backend
 }
 
 var (
@@ -76,9 +78,10 @@ var (
 )
 
 // NewCli creates a new Cli class instance
-func NewCli(cfg *config.XcConfig) (*Cli, error) {
+func NewCli(cfg *config.XcConfig, bknd backend.Backend) (*Cli, error) {
 	var err error
 	cli := new(Cli)
+	cli.backend = bknd
 	cli.stopped = false
 	cli.aliases = make(map[string]*alias)
 	cli.setupCmdHandlers()
@@ -199,7 +202,7 @@ func (c *Cli) setupCmdHandlers() {
 		commands[i] = cmd
 		i++
 	}
-	c.completer = newXcCompleter(commands)
+	c.completer = newXcCompleter(c.backend, commands)
 }
 
 func (c *Cli) setPrompt() {
@@ -342,7 +345,7 @@ func (c *Cli) doHostlist(name string, argsLine string, args ...string) {
 		return
 	}
 
-	hosts, err := conductor.HostList([]rune(args[0]))
+	hosts, err := c.backend.HostList([]rune(args[0]))
 	if err != nil {
 		term.Errorf("%s\n", err)
 		return
@@ -386,7 +389,8 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 		return
 	}
 
-	hosts, err := conductor.HostList(expr)
+	hosts, err := c.backend.HostList(expr)
+
 	if err != nil {
 		term.Errorf("Error parsing expression %s: %s\n", string(expr), err)
 		return
@@ -486,7 +490,7 @@ func (c *Cli) doSSH(name string, argsLine string, args ...string) {
 	c.acquirePasswd()
 	expr, rest := wsSplit([]rune(argsLine))
 
-	hosts, err := conductor.HostList([]rune(expr))
+	hosts, err := c.backend.HostList([]rune(expr))
 	if err != nil {
 		term.Errorf("Error parsing expression %s: %s\n", expr, err)
 		return
@@ -544,7 +548,8 @@ func (c *Cli) distributeCheck(argsLine string) (hosts []string, localFilename st
 		return
 	}
 
-	hosts, err = conductor.HostList(expr)
+	hosts, err = c.backend.HostList(expr)
+
 	if err != nil {
 		term.Errorf("Error parsing expression %s: %s\n", string(expr), err)
 		return
@@ -718,7 +723,7 @@ func (c *Cli) doPrependHostnames(name string, argsLine string, args ...string) {
 }
 
 func (c *Cli) doReload(name string, argsLine string, args ...string) {
-	conductor.Reload()
+	c.backend.Reload()
 }
 
 func (c *Cli) doConnectTimeout(name string, argsLine string, args ...string) {

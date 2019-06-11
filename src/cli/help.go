@@ -98,6 +98,9 @@ history_file = ~/.xc_history
 cache_dir = ~/.xc_cache
 rc_file = ~/.xcrc
 raise = none
+exit_confirm = true
+backend_type = conductor
+local_file = ~/.xc_hosts
 
 [executer]
 ssh_threads = 50
@@ -124,6 +127,12 @@ main.cache_dir sets the cache dir for data derived from inventoree
 main.rc_file is the rcfile which will be executed on xc startup. See "help rcfiles" for more info.
 
 main.raise is the raise mode which will be set on xc startup
+
+main.exit_confirm is boolean setting for disable or enable confirmation on exit
+
+main.backend_type is type of backend, conductor or localjson or localini now
+
+main.local_file is path to json or ini local file, used when backend_type is localjson or localini
 
 executer.ssh_threads limits the number of simultaneously running ssh commands.
 

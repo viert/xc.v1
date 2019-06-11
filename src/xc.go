@@ -1,8 +1,8 @@
 package main
 
 import (
+	"backend"
 	"cli"
-	"conductor"
 	"config"
 	"fmt"
 	"os"
@@ -20,13 +20,17 @@ func main() {
 		return
 	}
 
-	cdtr := conductor.NewConductor(xc.Conductor)
-	err = cdtr.Load()
+	bknd, err := backend.NewBackend(xc)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	c, err := cli.NewCli(xc)
+	err = bknd.Load()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	c, err := cli.NewCli(xc, bknd)
 	if err != nil {
 		println(err)
 		return

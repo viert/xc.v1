@@ -1,4 +1,4 @@
-package conductor
+package parser
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ const (
 	StateReadRegexp
 )
 
-type ConductorToken struct {
+type Token struct {
 	Type             TokenType
 	Value            string
 	DatacenterFilter string
@@ -39,17 +39,30 @@ var (
 	hostSymbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-{}"
 )
 
-func newToken() *ConductorToken {
-	ct := new(ConductorToken)
+func newToken() *Token {
+	ct := new(Token)
 	ct.TagsFilter = make([]string, 0)
 	ct.RegexpFilter = nil
 	return ct
 }
 
+func MaybeAddHost(hostlist *[]string, host string, exclude bool) {
+	newHl := *hostlist
+	if exclude {
+		hIdx := SliceIndex(newHl, host)
+		if hIdx >= 0 {
+			newHl = append(newHl[:hIdx], newHl[hIdx+1:]...)
+		}
+	} else {
+		newHl = append(newHl, host)
+	}
+	*hostlist = newHl
+}
+
 // ParseExpression syntaxically parses the executer dsl
-func ParseExpression(expr []rune) ([]*ConductorToken, error) {
+func ParseExpression(expr []rune) ([]*Token, error) {
 	ct := newToken()
-	res := make([]*ConductorToken, 0)
+	res := make([]*Token, 0)
 	state := StateWait
 	tag := ""
 	re := ""
@@ -273,4 +286,13 @@ func ParseExpression(expr []rune) ([]*ConductorToken, error) {
 	}
 
 	return res, nil
+}
+
+func SliceIndex(s []string, t string) int {
+	for i := 0; i < len(s); i++ {
+		if t == s[i] {
+			return i
+		}
+	}
+	return -1
 }
