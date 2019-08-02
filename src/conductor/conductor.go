@@ -293,6 +293,10 @@ func (c *Conductor) HostList(expr []rune) ([]string, error) {
 
 	for _, token := range tokens {
 		switch token.Type {
+		case parser.TTypeHostRegexp:
+			for _, host := range c.MatchHost(token.RegexpFilter) {
+				parser.MaybeAddHost(&hostlist, host, token.Exclude)
+			}
 		case parser.TTypeHost:
 
 			hosts, err := sekwence.ExpandPattern(token.Value)
@@ -398,6 +402,18 @@ func (c *Conductor) HostList(expr []rune) ([]string, error) {
 		}
 	}
 	return hostlist, nil
+}
+
+func (c *Conductor) MatchHost(pattern *regexp.Regexp) []string {
+	res := make([]string, 0)
+	for hostname := range cGlobal.cache.hosts.fqdn {
+		if pattern.MatchString(hostname) {
+			res = append(res, hostname)
+		}
+	}
+	sort.Strings(res)
+	return res
+
 }
 
 func contains(array []string, elem string) bool {
