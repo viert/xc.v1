@@ -89,6 +89,13 @@ func ParseExpression(expr []rune) ([]*Token, error) {
 				continue
 			}
 
+			if sym == '#' {
+				ct.Type = TTypeWorkGroup
+				state = StateReadTag
+				tag = ""
+				continue
+			}
+
 			if strings.ContainsRune(hostSymbols, sym) {
 				state = StateReadHost
 				ct.Type = TTypeHost
