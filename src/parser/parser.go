@@ -13,6 +13,7 @@ const (
 	TTypeHost TokenType = iota
 	TTypeGroup
 	TTypeWorkGroup
+	TTypeHostRegexp
 )
 
 const (
@@ -93,6 +94,12 @@ func ParseExpression(expr []rune) ([]*Token, error) {
 				ct.Type = TTypeWorkGroup
 				state = StateReadTag
 				tag = ""
+        continue
+      }
+
+      if sym == '/' || sym == '~' {
+				state = StateReadHost
+				ct.Type = TTypeHostRegexp
 				continue
 			}
 
@@ -199,6 +206,12 @@ func ParseExpression(expr []rune) ([]*Token, error) {
 			re += string(sym)
 
 		case StateReadHost:
+			if sym == '/' {
+				state = StateReadRegexp
+				re = ""
+				continue
+			}
+
 			if sym == '{' {
 				state = StateReadHostBracePattern
 			}
