@@ -94,10 +94,10 @@ func ParseExpression(expr []rune) ([]*Token, error) {
 				ct.Type = TTypeWorkGroup
 				state = StateReadTag
 				tag = ""
-        continue
-      }
+				continue
+			}
 
-      if sym == '/' || sym == '~' {
+			if sym == '/' || sym == '~' {
 				state = StateReadHost
 				ct.Type = TTypeHostRegexp
 				continue
