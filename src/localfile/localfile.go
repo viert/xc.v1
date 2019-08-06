@@ -8,6 +8,7 @@ import (
 	"parser"
 	"sort"
 	"strings"
+	"regexp"
 
 	"github.com/go-ini/ini"
 )
@@ -69,6 +70,10 @@ func (f *LocalFile) HostList(x []rune) ([]string, error) {
 		group := *f.data
 		hosts := group[token.Value]
 		switch token.Type {
+		case parser.TTypeHostRegexp:
+			for _, host := range f.MatchHost(token.RegexpFilter) {
+				parser.MaybeAddHost(&hostlist, host, token.Exclude)
+			}
 		case parser.TTypeHost:
 			if len(hosts) == 0 {
 				hosts = []string{token.Value}
@@ -89,6 +94,20 @@ func (f *LocalFile) HostList(x []rune) ([]string, error) {
 
 func (f *LocalFile) Reload() error {
 	return f.Load()
+}
+
+func (f *LocalFile) MatchHost(pattern *regexp.Regexp) []string {
+	res := make([]string, 0)
+	for _, group := range *f.data {
+		for _, hostname := range group {
+			if pattern.MatchString(hostname) {
+				res = append(res, hostname)
+			}
+		}
+	}
+	sort.Strings(res)
+	return res
+
 }
 
 func (f *LocalFile) CompleteHost(line string) []string {
