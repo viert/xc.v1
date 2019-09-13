@@ -18,7 +18,7 @@ type Group struct {
 	ID          string   `json:"_id"`
 	ChildIds    []string `json:"child_ids"`
 	ParentIds   []string `json:"parent_ids"`
-	AllTags     []string `json:"all_tags"`
+	AllTags     []string `json:"tags"`
 	Description string   `json:"description"`
 	Name        string   `json:"name"`
 	WorkGroupID string   `json:"work_group_id"`
@@ -28,7 +28,7 @@ type Group struct {
 type Host struct {
 	ID           string   `json:"_id"`
 	Aliases      []string `json:"aliases"`
-	AllTags      []string `json:"all_tags"`
+	AllTags      []string `json:"tags"`
 	FQDN         string   `json:"fqdn"`
 	GroupID      string   `json:"group_id"`
 	DatacenterID string   `json:"datacenter_id"`
