@@ -30,6 +30,7 @@ type XcConfig struct {
 	PrependHostnames  bool
 	LogFile           string
 	ExitConfirm       bool
+	ExecConfirm       bool
 	BackendType       string
 	LocalFile         string
 
@@ -48,6 +49,7 @@ rc_file = ~/.xcrc
 log_file = 
 raise = none
 exit_confirm = true
+exec_confirm = true
 backend_type = conductor
 local_file = ~/.xc_hosts
 
@@ -98,6 +100,7 @@ var (
 	defaultSSHConnectTimeout = 1
 	defaultLogFile           = ""
 	defaultExitConfirm       = true
+	defaultExecConfirm       = true
 	defaultBackendType       = "conductor"
 	defaultLocalFile         = "~/.xc_hosts"
 	defaultInterpreter       = "/bin/bash"
@@ -258,6 +261,12 @@ func readConfig(filename string, secondPass bool) (*XcConfig, error) {
 		exitcnfrm = defaultExitConfirm
 	}
 	xc.ExitConfirm = exitcnfrm
+
+	execcnfrm, err := props.GetBool("main.exec_confirm")
+	if err != nil {
+		execcnfrm = defaultExecConfirm
+	}
+	xc.ExecConfirm = execcnfrm
 
 	bknd, err := props.GetString("main.backend_type")
 	if err != nil {

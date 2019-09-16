@@ -57,6 +57,7 @@ type Cli struct {
 	prependHostnames    bool
 	sshThreads          int
 	exitConfirm         bool
+	execConfirm         bool
 
 	outputFileName string
 	outputFile     *os.File
@@ -104,6 +105,7 @@ func NewCli(cfg *config.XcConfig, bknd backend.Backend) (*Cli, error) {
 	cli.connectTimeout = fmt.Sprintf("%d", cfg.SSHConnectTimeout)
 	cli.sshThreads = cfg.SSHThreads
 	cli.exitConfirm = cfg.ExitConfirm
+	cli.execConfirm = cfg.ExecConfirm
 
 	cli.setInterpreter("none", cfg.Interpreter)
 	cli.setInterpreter("sudo", cfg.SudoInterpreter)
@@ -401,11 +403,22 @@ func (c *Cli) doexec(mode execMode, argsLine string) {
 		return
 	}
 
+
 	c.acquirePasswd()
 	cmd := string(rest)
 	executer.SetUser(c.user)
 	executer.SetRaise(c.raiseType)
 	executer.SetPasswd(c.raisePasswd)
+
+	if c.execConfirm {
+		fmt.Printf("%s\n", term.Yellow(term.HR(len(cmd) + 5)))
+		fmt.Printf("%s\n%s\n\n", term.Yellow("Hosts:"), strings.Join(hosts, ", "))
+		fmt.Printf("%s\n%s\n\n", term.Yellow("Command:"), cmd)
+	    if ! c.confirm("Are you sure?") {
+			return
+	    }
+		fmt.Printf("%s\n\n", term.Yellow(term.HR(len(cmd) + 5)))
+	}
 
 	executer.WriteOutput(fmt.Sprintf("==== exec %s\n", argsLine))
 
